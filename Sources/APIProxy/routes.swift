@@ -10,11 +10,17 @@ app.get { req async in
         "Hello, world!"
     }
     
-    try app.grouped(DeviceValidationMiddlewear()).register(collection: RequestProxyController())
-    let authenticatedRouters = app.grouped(ClerkAuthenticator())
+    try registerV1Routes(app.grouped("v1"))
+    try registerV1Routes(app)
+}
+
+private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
+    try v1.grouped(DeviceValidationMiddlewear()).register(collection: RequestProxyController())
     
-    try authenticatedRouters.register(collection: UserController())
-    try authenticatedRouters.register(collection: APIKeyController())
-    try authenticatedRouters.register(collection: ProjectController())
-    try authenticatedRouters.register(collection: DeviceCheckKeyController())
+    let v1_authenticatedRouters = v1.grouped(ClerkAuthenticator())
+    
+    try v1_authenticatedRouters.register(collection: UserController())
+    try v1_authenticatedRouters.register(collection: APIKeyController())
+    try v1_authenticatedRouters.register(collection: ProjectController())
+    try v1_authenticatedRouters.register(collection: DeviceCheckKeyController())
 }
