@@ -9,6 +9,7 @@ struct ProjectController: RouteCollection {
         projects.post(use: self.create)
         projects.group(":projectID") { project in
             project.get(use: self.get)
+            project.put(use: self.update)
             project.delete(use: self.delete)
         }
     }
@@ -63,6 +64,51 @@ struct ProjectController: RouteCollection {
         
         try await project.save(on: req.db)
         return try await project.toDTO(on: req.db)
+    }
+    
+    /// PUT /me/projects/:projectID
+    ///
+    /// Updates an existing project for a specific user.
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// ## Request Body
+    /// Expects a ``ProjectDTO`` object containing:
+    /// - name: The name of the project (optional)
+    /// - description: The description of the project (optional)
+    ///
+    /// ```json
+    /// {
+    ///   "name": "My Project",
+    ///   "description": "Project description"
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - req: The HTTP request containing the user ID parameter and project data in the request body
+    /// - Returns: ``ProjectDTO`` object containing the updated project information
+    @Sendable
+    func update(req: Request) async throws -> ProjectDTO {
+        let user = try req.auth.require(User.self)
+        let projectDTO = try req.content.decode(ProjectDTO.self)
+        
+        guard let projectID = req.parameters.get("projectID", as: UUID.self),
+              let dbProject = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+            throw Abort(.notFound)
+        }
+        
+        if let name = projectDTO.name {
+            dbProject.name = name
+        }
+        
+        if let description = projectDTO.description {
+            dbProject.userDescription = description
+        }
+        
+        try await dbProject.save(on: req.db)
+        
+        return try await dbProject.toDTO(on: req.db)
     }
 
     /// GET /me/projects/:projectID
