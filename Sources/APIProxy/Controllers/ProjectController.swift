@@ -99,6 +99,9 @@ struct ProjectController: RouteCollection {
         }
         
         if let name = projectDTO.name {
+            guard !name.isEmpty else {
+                throw Abort(.badRequest, reason: "Project name cannot be empty")
+            }
             dbProject.name = name
         }
         

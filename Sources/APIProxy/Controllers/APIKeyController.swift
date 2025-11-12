@@ -132,6 +132,9 @@ struct APIKeyController: RouteCollection {
         }
         
         if let name = keyDTO.name {
+            guard !name.isEmpty else {
+                throw Abort(.badRequest, reason: "API key name cannot be empty")
+            }
             key.name = name
         }
         
