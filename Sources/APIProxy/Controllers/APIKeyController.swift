@@ -70,9 +70,17 @@ struct APIKeyController: RouteCollection {
     func create(req: Request) async throws -> APIKeySendingDTO {
         let keyDTO = try req.content.decode(APIKeyRecievingDTO.self)
         
-        let (userKey, dbKey) = try KeySplitter.split(key: keyDTO.apiKey)
+        guard let apiKey = keyDTO.apiKey else {
+            throw Abort(.badRequest, reason: "API key is required")
+        }
         
-        let key = APIKey(name: keyDTO.name, description: keyDTO.description ?? "", partialKey: dbKey)
+        guard let name = keyDTO.name else {
+            throw Abort(.badRequest, reason: "Name for API key is required")
+        }
+        
+        let (userKey, dbKey) = try KeySplitter.split(key: apiKey)
+        
+        let key = APIKey(name: name, description: keyDTO.description ?? "", partialKey: dbKey)
         
         let user = try req.auth.require(User.self)
         
@@ -92,6 +100,48 @@ struct APIKeyController: RouteCollection {
         dto.userPartialKey = userKey
         
         return dto
+    }
+
+    /// PUT /me/projects/:projectID/keys/:keyID
+    ///
+    /// Updates a specific API key by its unique identifier.
+    ///
+    /// ## Path Parameters
+    /// - projectID: The unique identifier of the project
+    /// - keyID: The unique identifier of the API key
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// - Parameters:
+    ///   - req: The HTTP request containing the user ID, project ID, and key ID parameters
+    /// - Returns: ``APIKeySendingDTO`` object containing the API key information
+    @Sendable
+    func update(req: Request) async throws -> APIKeySendingDTO {
+        let user = try req.auth.require(User.self)
+        let keyDTO = try req.content.decode(APIKeyRecievingDTO.self)
+        
+        guard let projectID = req.parameters.get("projectID", as: UUID.self),
+              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+            throw Abort(.notFound)
+        }
+
+        guard let keyID = req.parameters.get("keyID", as: UUID.self),
+              let key = try await APIKey.query(on: req.db).filter(\.$id == keyID).filter(\.$project.$id == project.requireID()).with(\.$project).first() else {
+            throw Abort(.notFound)
+        }
+        
+        if let name = keyDTO.name {
+            key.name = name
+        }
+        
+        if let description = keyDTO.description {
+            key.userDescription = description
+        }
+        
+        try await key.save(on: req.db)
+
+        return key.toDTO()
     }
 
     /// GET /me/projects/:projectID/keys/:keyID

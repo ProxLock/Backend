@@ -2,8 +2,8 @@ import Fluent
 import Vapor
 
 struct APIKeyRecievingDTO: Content {
-    let name: String
-    let apiKey: String
+    let name: String?
+    let apiKey: String?
     let description: String?
 }
 
