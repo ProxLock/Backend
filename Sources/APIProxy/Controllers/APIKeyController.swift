@@ -9,7 +9,7 @@ struct APIKeyController: RouteCollection {
         keys.post(use: self.create)
         keys.group(":keyID") { key in
             key.get(use: self.get)
-            key.put(use: self.put)
+            key.put(use: self.update)
             key.delete(use: self.delete)
         }
     }
