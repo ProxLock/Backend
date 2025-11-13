@@ -23,10 +23,15 @@ jobs:
           swift-version: '6.1'
 
       - name: Build Swift Release
-        run: swift build -c release
+        run: swift build -c release \
+          --product ProxLock \
+          --static-swift-stdlib \
+          -Xlinker -ljemalloc && \
+          cp "$(swift build -c release --show-bin-path)/ProxLock" /staging && \
+          find -L "$(swift build -c release --show-bin-path)" -regex '.*\.resources$' -exec cp -Ra {} /staging \;
 
       - name: Upload ProxLock binary
         uses: actions/upload-artifact@v4
         with:
           name: ProxLock
-          path: ./.build/release/ProxLock
+          path: ./ProxLock
