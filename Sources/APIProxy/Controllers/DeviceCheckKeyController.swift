@@ -4,10 +4,14 @@ import JWTKit
 
 struct DeviceCheckKeyController: RouteCollection {
     func boot(routes: any RoutesBuilder) throws {
+        let me = routes.grouped("me", "device-check")
+        
+        me.get(use: self.index)
+        
         let keys = routes.grouped("me", "projects", ":projectID", "device-check")
 
-        keys.get(use: self.index)
         keys.post(use: self.create)
+        keys.put(use: self.link)
         keys.get(use: self.get)
         keys.delete(use: self.delete)
     }
