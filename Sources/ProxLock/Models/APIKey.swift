@@ -19,23 +19,28 @@ final class APIKey: Model, @unchecked Sendable {
     @Field(key: "partial_key")
     var partialKey: String
     
+    @Field(key: "whitelisted_urls")
+    var whitelistedUrls: [String]?
+    
     @Parent(key: "project_id")
     var project: Project
 
     init() { }
 
-    init(id: UUID? = nil, name: String, description: String, partialKey: String) {
+    init(id: UUID? = nil, name: String, description: String, partialKey: String, whitelistedUrls: [String]) {
         self.id = id
         self.name = name
         self.userDescription = description
         self.partialKey = partialKey
+        self.whitelistedUrls = whitelistedUrls
     }
     
     func toDTO() -> APIKeySendingDTO {
         .init(
             id: self.id,
             name: self.name,
-            description: userDescription
+            description: userDescription,
+            whitelistedUrls: whitelistedUrls ?? []
         )
     }
 }

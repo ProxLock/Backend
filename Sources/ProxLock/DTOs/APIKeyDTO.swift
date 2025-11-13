@@ -5,6 +5,7 @@ struct APIKeyRecievingDTO: Content {
     let name: String?
     let apiKey: String?
     let description: String?
+    let whitelistedUrls: [String]?
 }
 
 struct APIKeySendingDTO: Content {
@@ -12,4 +13,5 @@ struct APIKeySendingDTO: Content {
     let name: String
     var userPartialKey: String?
     let description: String
+    let whitelistedUrls: [String]
 }

@@ -3,7 +3,8 @@ import Fluent
 extension APIKey: Migratable {
     static let migrations: [any Migration] = [
         CreateMigration(),
-        AddDescriptionMigration()
+        AddDescriptionMigration(),
+        AddWhitelistedUrls()
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -31,6 +32,20 @@ extension APIKey: Migratable {
         func revert(on database: any Database) async throws {
             try await database.schema(APIKey.schema)
                 .deleteField("description")
+                .update()
+        }
+    }
+    
+    struct AddWhitelistedUrls: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .field("whitelisted_urls", .array(of: .string))
+                .update()
+        }
+
+        func revert(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .deleteField("whitelisted_urls")
                 .update()
         }
     }

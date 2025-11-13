@@ -37,7 +37,8 @@ struct RequestProxyController: RouteCollection {
         guard let associationId = headers.first(name: ProxyHeaderKeys.associationId) else { throw ProxyError.associationIdMissing }
         guard let partialKey = headers.first(where: { $0.value.contains(ProxyHeaderKeys.partialKeyIdentifier)}) else { throw ProxyError.partialKeyMissing }
         guard let httpMethod = headers.first(name: ProxyHeaderKeys.httpMethod) else { throw ProxyError.httpMethodMissing }
-        guard let destinationString = headers.first(name: ProxyHeaderKeys.destination) else { throw ProxyError.destinationMissing }
+        guard let destinationString = headers.first(name: ProxyHeaderKeys.destination), let destinationUrl = URL(string: destinationString)
+        else { throw ProxyError.destinationMissing }
         
         headers.remove(name: ProxyHeaderKeys.destination)
         headers.remove(name: ProxyHeaderKeys.httpMethod)
@@ -49,6 +50,27 @@ struct RequestProxyController: RouteCollection {
         guard let dbKey = try await APIKey.find(UUID(uuidString: associationId), on: req.db) else {
             throw Abort(.badRequest, reason: "Key was not found")
         }
+        
+        let checkingUrls = (dbKey.whitelistedUrls ?? []).filter { getHostFromString($0) == destinationUrl.host }
+        
+        // Ensure the url is allowed
+        guard destinationUrl.host != nil, !checkingUrls.isEmpty else {
+            throw Abort(.forbidden)
+        }
+        
+        for whitelistedUrl in checkingUrls {
+            // Wildcard path protections
+            guard let path = getPathFromString(whitelistedUrl), (destinationUrl.path().hasPrefix("\(path)/") || destinationUrl.path().hasSuffix(path)) else {
+                guard whitelistedUrl != checkingUrls.last else {
+                    throw Abort(.forbidden)
+                }
+                
+                continue
+            }
+            
+            break
+        }
+        
         guard let userPartialKeyRange = partialKey.value.range(of: #"(?<=%ProxLock_PARTIAL_KEY:)[^%]+"#, options: .regularExpression) else {
             throw Abort(.badRequest, reason: "Partial Key was not found")
         }
@@ -60,6 +82,14 @@ struct RequestProxyController: RouteCollection {
         
         let request = ClientRequest(method: .RAW(value: httpMethod), url: URI(string: destinationString), headers: headers, body: req.body.data)
         return try await req.client.send(request)
+    }
+    
+    private func getHostFromString(_ string: String) -> String? {
+        URL(string: "http://\(string.replacingOccurrences(of: "http://", with: "").replacingOccurrences(of: "https://", with: ""))")?.host()
+    }
+    
+    private func getPathFromString(_ string: String) -> String? {
+        URL(string: "http://\(string.replacingOccurrences(of: "http://", with: "").replacingOccurrences(of: "https://", with: ""))")?.path()
     }
 }
 
