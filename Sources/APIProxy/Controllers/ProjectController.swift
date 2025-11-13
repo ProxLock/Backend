@@ -57,9 +57,14 @@ struct ProjectController: RouteCollection {
     /// - Returns: ``ProjectDTO`` object containing the created project information
     @Sendable
     func create(req: Request) async throws -> ProjectDTO {
-        let project = try req.content.decode(ProjectDTO.self).toModel()
+        let projectDTO = try req.content.decode(ProjectDTO.self)
+        let project = projectDTO.toModel()
         let user = try req.auth.require(User.self)
 
+        if projectDTO.description == nil {
+            project.userDescription = ""
+        }
+        
         project.$user.id = try user.requireID()
         
         try await project.save(on: req.db)
