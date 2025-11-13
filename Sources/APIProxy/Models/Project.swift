@@ -22,6 +22,9 @@ final class Project: Model, @unchecked Sendable {
     @Children(for: \.$project)
     var apiKeys: [APIKey]
     
+    @OptionalChild(for: \.$project)
+    var deviceCheckKey: DeviceCheckKey?
+    
     init() { }
 
     init(id: UUID? = nil, name: String, description: String) {

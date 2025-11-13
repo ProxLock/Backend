@@ -13,7 +13,7 @@ extension DeviceCheckKey: Migratable {
                 .field("secret_key", .string, .required)
                 .field("key_id", .string, .required)
                 .field("bypass_token", .string, .required)
-                .field("user_id", .uuid, .required, .references(User.schema, "id"))
+                .field("project_id", .uuid, .required, .references(Project.schema, "id"))
                 .create()
         }
 

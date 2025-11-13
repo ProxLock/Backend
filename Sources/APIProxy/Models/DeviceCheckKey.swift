@@ -22,8 +22,8 @@ final class DeviceCheckKey: Model, @unchecked Sendable {
     @Field(key: "bypass_token")
     var bypassToken: String
 
-    @Parent(key: "user_id")
-    var user: User
+    @Parent(key: "project_id")
+    var project: Project
     
     init() { }
 

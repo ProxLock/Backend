@@ -4,14 +4,12 @@ import JWTKit
 
 struct DeviceCheckKeyController: RouteCollection {
     func boot(routes: any RoutesBuilder) throws {
-        let keys = routes.grouped("me", "device-check")
+        let keys = routes.grouped("me", "projects", ":projectID", "device-check")
 
         keys.get(use: self.index)
         keys.post(use: self.create)
-        keys.group(":teamID") { key in
-            key.get(use: self.get)
-            key.delete(use: self.delete)
-        }
+        keys.get(use: self.get)
+        keys.delete(use: self.delete)
     }
 
     /// GET /me/device-check
@@ -28,13 +26,25 @@ struct DeviceCheckKeyController: RouteCollection {
     func index(req: Request) async throws -> [DeviceCheckKeySendingDTO] {
         let user = try req.auth.require(User.self)
         
-        return try await DeviceCheckKey.query(on: req.db).filter(\.$user.$id == user.requireID()).with(\.$user).all().map { $0.toDTO() }
+        try await user.$projects.load(on: req.db)
+        let projects = try await user.$projects.get(on: req.db)
+        
+        var keys: [DeviceCheckKey] = []
+        
+        for project in projects {
+            try await project.$deviceCheckKey.load(on: req.db)
+            
+            guard let key = try await project.$deviceCheckKey.get(on: req.db) else { continue }
+            keys.append(key)
+        }
+        
+        return keys.map { $0.toDTO() }
     }
 
-    /// POST /me/device-check
+    /// POST /me/projects/:projectID/device-check
     ///
-    /// Creates or updates a DeviceCheck key for a specific user and team.
-    /// 
+    /// Creates or updates a DeviceCheck key for a specific project.
+    ///
     /// ## Required Headers
     /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
     ///
@@ -58,6 +68,17 @@ struct DeviceCheckKeyController: RouteCollection {
     @Sendable
     func create(req: Request) async throws -> DeviceCheckKeySendingDTO {
         let user = try req.auth.require(User.self)
+        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Project.find(projectID, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        
+        try await project.$user.load(on: req.db)
+        
+        guard try await user.requireID() == project.$user.get(on: req.db).requireID() else {
+            throw Abort(.notFound)
+        }
+        
+        try await project.$deviceCheckKey.load(on: req.db)
         
         let dto = try req.content.decode(DeviceCheckKeyRecievingDTO.self)
         
@@ -67,7 +88,7 @@ struct DeviceCheckKeyController: RouteCollection {
         // Update Existing Key or Create New ONe
         let key: DeviceCheckKey
         
-        if let foundKey = (try? await DeviceCheckKey.query(on: req.db).filter(\.$teamID == dto.teamID).filter(\.$user.$id == user.requireID()).with(\.$user).first()) {
+        if let foundKey = (try? await project.$deviceCheckKey.get(on: req.db)) {
             foundKey.secretKey = dto.privateKey
             foundKey.keyID = dto.keyID
             key = foundKey
@@ -76,15 +97,15 @@ struct DeviceCheckKeyController: RouteCollection {
         }
         
         // Assign to user and save
-        key.$user.id = try user.requireID()
+        key.$project.id = try project.requireID()
         try await key.save(on: req.db)
         
         return key.toDTO()
     }
 
-    /// GET /me/device-check/:teamID
+    /// GET /me/projects/:projectID/device-check
     ///
-    /// Retrieves a specific DeviceCheck key by team ID for a user.
+    /// Retrieves a specific DeviceCheck key by team ID for a project.
     ///
     /// ## Required Headers
     /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
@@ -98,16 +119,28 @@ struct DeviceCheckKeyController: RouteCollection {
     @Sendable
     func get(req: Request) async throws -> DeviceCheckKeySendingDTO {
         let user = try req.auth.require(User.self)
-
-        guard let key = try await DeviceCheckKey.query(on: req.db).filter(\.$teamID == req.parameters.require("teamID")).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
-            throw Abort(.notFound, reason: "DeviceCheck Key was Not Found")
+        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Project.find(projectID, on: req.db) else {
+            throw Abort(.notFound)
         }
+        
+        try await project.$user.load(on: req.db)
+        
+        guard try await user.requireID() == project.$user.get(on: req.db).requireID() else {
+            throw Abort(.notFound)
+        }
+        
+        try await project.$deviceCheckKey.load(on: req.db)
+        
+        guard let key = try await project.$deviceCheckKey.get(on: req.db) else {
+            throw Abort(.notFound)
+        }
+        
         return key.toDTO()
     }
 
-    /// DELETE /me/device-check/:teamID
+    /// DELETE /me/projects/:projectID/device-check
     ///
-    /// Deletes a specific DeviceCheck key by team ID for a user.
+    /// Deletes a specific DeviceCheck key by team ID for a project.
     ///
     /// ## Path Parameters
     /// - teamID: The unique identifier of the Apple Developer team 
@@ -121,9 +154,20 @@ struct DeviceCheckKeyController: RouteCollection {
     @Sendable
     func delete(req: Request) async throws -> HTTPStatus {
         let user = try req.auth.require(User.self)
-
-        guard let key = try await DeviceCheckKey.query(on: req.db).filter(\.$teamID == req.parameters.require("teamID")).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
-            throw Abort(.notFound, reason: "DeviceCheck Key was Not Found")
+        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Project.find(projectID, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        
+        try await project.$user.load(on: req.db)
+        
+        guard try await user.requireID() == project.$user.get(on: req.db).requireID() else {
+            throw Abort(.notFound)
+        }
+        
+        try await project.$deviceCheckKey.load(on: req.db)
+        
+        guard let key = try await project.$deviceCheckKey.get(on: req.db) else {
+            throw Abort(.notFound)
         }
 
         try await key.delete(on: req.db)

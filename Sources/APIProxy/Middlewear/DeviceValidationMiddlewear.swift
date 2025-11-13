@@ -24,9 +24,6 @@ struct DeviceValidationMiddlewear: AsyncMiddleware {
     }
     
     private func handleDeviceCheck(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
-        guard let teamID = request.headers.first(name: DeviceValidationHeaderKeys.appleTeamID) else {
-            throw Abort(.unauthorized, reason: "Failed Device Validation: Team ID not detected")
-        }
         guard let associationId = request.headers.first(name: ProxyHeaderKeys.associationId) else {
             throw Abort(.unauthorized, reason: "Failed Device Validation: Association ID not detected")
         }
@@ -38,12 +35,8 @@ struct DeviceValidationMiddlewear: AsyncMiddleware {
         try await dbKey.$project.load(on: request.db)
         let project = try await dbKey.$project.get(on: request.db)
         
-        // Get User
-        try await project.$user.load(on: request.db)
-        let user = try await project.$user.get(on: request.db)
-        
-        // Get device check key within user
-        guard let key = try await DeviceCheckKey.query(on: request.db).filter(\.$teamID == teamID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+        try await project.$deviceCheckKey.load(on: request.db)
+        guard let key = try await project.$deviceCheckKey.get(on: request.db) else {
             throw Abort(.unauthorized, reason: "Key was not found")
         }
         
