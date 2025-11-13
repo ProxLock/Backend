@@ -28,8 +28,8 @@ jobs:
       - name: Build Swift Release
         run: swift build -c release
 
-      - name: Upload server executable
-        uses: actions/upload-artifact@v4
-        with:
-          name: ProxLock-executable
-          path: .build/release/ProxLock
+      # - name: Upload server executable
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ProxLock-executable
+      #     path: .build/release/ProxLock
