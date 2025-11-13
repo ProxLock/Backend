@@ -38,6 +38,31 @@ struct ClerkAuthenticator: AsyncBearerAuthenticator {
     }
     
     static func verifyClerkToken(_ token: String, on req: Request) async throws -> ClerkClaims {
+        do {
+            return try await Self.verifyProdClerkToken(token, on: req)
+        } catch let error as JWTError {
+            do {
+                return try await Self.verifyDevClerkToken(token, on: req)
+            } catch {
+                throw error
+            }
+        } catch {
+            throw error
+        }
+    }
+    
+    private static func verifyProdClerkToken(_ token: String, on req: Request) async throws -> ClerkClaims {
+        // Fetch Clerk JWKS
+        let jwksURL = URI(string: "https://clerk.proxlock.dev/.well-known/jwks.json")
+        let jwks = try await req.client.get(jwksURL).content.decode(JWKS.self)
+
+        let signers = try await req.application.jwt.keys.add(jwks: jwks)
+
+        // Verify JWT
+        return try await signers.verify(token, as: ClerkClaims.self)
+    }
+    
+    private static func verifyDevClerkToken(_ token: String, on req: Request) async throws -> ClerkClaims {
         // Fetch Clerk JWKS
         let jwksURL = URI(string: "https://fit-quail-72.clerk.accounts.dev/.well-known/jwks.json")
         let jwks = try await req.client.get(jwksURL).content.decode(JWKS.self)
