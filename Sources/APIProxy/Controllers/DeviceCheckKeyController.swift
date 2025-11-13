@@ -82,18 +82,102 @@ struct DeviceCheckKeyController: RouteCollection {
         
         let dto = try req.content.decode(DeviceCheckKeyRecievingDTO.self)
         
+        guard let privateKey = dto.privateKey else {
+            throw Abort(.badRequest, reason: "Missing private key")
+        }
+        
         // Validate key is correct form
-        let _ = try ES256PrivateKey(pem: Data(dto.privateKey.utf8))
+        let _ = try ES256PrivateKey(pem: Data(privateKey.utf8))
         
         // Update Existing Key or Create New ONe
         let key: DeviceCheckKey
         
         if let foundKey = (try? await project.$deviceCheckKey.get(on: req.db)) {
-            foundKey.secretKey = dto.privateKey
+            foundKey.secretKey = privateKey
             foundKey.keyID = dto.keyID
+            foundKey.teamID = dto.teamID
             key = foundKey
         } else {
-            key = DeviceCheckKey(secretKey: dto.privateKey, keyID: dto.keyID, teamID: dto.teamID)
+            key = DeviceCheckKey(secretKey: privateKey, keyID: dto.keyID, teamID: dto.teamID)
+        }
+        
+        // Assign to user and save
+        key.$project.id = try project.requireID()
+        try await key.save(on: req.db)
+        
+        return key.toDTO()
+    }
+
+    /// PUT /me/projects/:projectID/device-check
+    ///
+    /// Creates or updates a DeviceCheck key for a specific project by copying an existing key from the user.
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// ## Request Body
+    /// Expects a ``DeviceCheckKeyRecievingDTO`` object containing:
+    /// - teamID: The Apple Developer team identifier (required)
+    /// - keyID: The Apple Developer key identifier (required)
+    /// - privateKey: The ES256 private key in PEM format (required)
+    /// 
+    /// ```json
+    /// {
+    ///   "teamID": "XYZ789GHI0",
+    ///   "keyID": "ABC123DEF4",
+    ///   "privateKey": "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg...\n-----END PRIVATE KEY-----"
+    /// }
+    /// ```
+    /// 
+    /// - Parameters:
+    ///   - req: The HTTP request containing the user ID parameter and DeviceCheck key data in the request body
+    /// - Returns: ``DeviceCheckKeySendingDTO`` object containing the DeviceCheck key information
+    @Sendable
+    func link(req: Request) async throws -> DeviceCheckKeySendingDTO {
+        // Get the key
+        let user = try req.auth.require(User.self)
+        let dto = try req.content.decode(DeviceCheckKeyRecievingDTO.self)
+        
+        try await user.$projects.load(on: req.db)
+        let projects = try await user.$projects.get(on: req.db)
+        
+        var existingKey: DeviceCheckKey?
+        
+        for project in projects {
+            try await project.$deviceCheckKey.load(on: req.db)
+            
+            guard let key = try await project.$deviceCheckKey.get(on: req.db),
+                  dto.keyID == key.keyID,
+                  dto.teamID == key.teamID
+            else { continue }
+            existingKey = key
+        }
+        
+        guard let existingKey else {
+            throw Abort(.notFound)
+        }
+        
+        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Project.find(projectID, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        
+        try await project.$user.load(on: req.db)
+        
+        guard try await user.requireID() == project.$user.get(on: req.db).requireID() else {
+            throw Abort(.notFound)
+        }
+        
+        try await project.$deviceCheckKey.load(on: req.db)
+        
+        let key: DeviceCheckKey
+        
+        if let foundKey = (try? await project.$deviceCheckKey.get(on: req.db)) {
+            foundKey.secretKey = existingKey.secretKey
+            foundKey.keyID = existingKey.keyID
+            foundKey.teamID = existingKey.teamID
+            key = foundKey
+        } else {
+            key = DeviceCheckKey(secretKey: existingKey.secretKey, keyID: existingKey.keyID, teamID: existingKey.teamID)
         }
         
         // Assign to user and save
