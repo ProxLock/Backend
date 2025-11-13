@@ -80,11 +80,7 @@ struct RequestProxyController: RouteCollection {
             headers.replaceOrAdd(name: header.name, value: header.value.replacingOccurrences(of: "\(ProxyHeaderKeys.partialKeyIdentifier)\(userPartialKey)%", with: completeKey))
         }
         
-        req.logger.info("PROXY: Sending Request to \(destinationUrl)")
-        
         let request = ClientRequest(method: .RAW(value: httpMethod), url: URI(string: destinationString), headers: headers, body: req.body.data)
-        
-        req.logger.debug("PROXY: \(request)")
         
         return try await req.client.send(request)
     }
