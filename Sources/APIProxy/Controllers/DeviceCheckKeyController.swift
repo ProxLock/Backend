@@ -123,15 +123,6 @@ struct DeviceCheckKeyController: RouteCollection {
     /// Expects a ``DeviceCheckKeyRecievingDTO`` object containing:
     /// - teamID: The Apple Developer team identifier (required)
     /// - keyID: The Apple Developer key identifier (required)
-    /// - privateKey: The ES256 private key in PEM format (required)
-    /// 
-    /// ```json
-    /// {
-    ///   "teamID": "XYZ789GHI0",
-    ///   "keyID": "ABC123DEF4",
-    ///   "privateKey": "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg...\n-----END PRIVATE KEY-----"
-    /// }
-    /// ```
     /// 
     /// - Parameters:
     ///   - req: The HTTP request containing the user ID parameter and DeviceCheck key data in the request body
