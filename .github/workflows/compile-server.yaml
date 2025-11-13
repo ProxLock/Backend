@@ -21,7 +21,7 @@ jobs:
         run: |
           docker build -t proxlock-build .
           docker create --name temp proxlock-build
-          docker cp temp:/build/.build/release/ProxLock ./ProxLock
+          docker cp temp:./ProxLock ./ProxLock
           docker rm temp
 
       # Step 3: Upload binary
