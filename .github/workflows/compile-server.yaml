@@ -14,28 +14,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Set up Swift
       - name: Set up Swift
-        uses: fwal/setup-swift@v2
+        uses: swift-actions/setup-swift@v2
         with:
-          swift-version: '6.1'  # Change to your Swift version
+          swift-version: '6.1'
 
-      # Step 3: Build in release mode
       - name: Build Swift Release
         run: swift build -c release
 
-  upload:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ProxLock
       - name: Upload ProxLock binary
         uses: actions/upload-artifact@v4
         with:
