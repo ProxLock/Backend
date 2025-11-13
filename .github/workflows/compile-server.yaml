@@ -14,26 +14,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # - name: Install system dependencies
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y \
-      #       libjemalloc-dev \
-      #       libcurl4 \
-      #       ca-certificates \
-      #       tzdata \
-
+      # Step 2: Set up Swift
       - name: Set up Swift
         uses: fwal/setup-swift@v2
         with:
-          swift-version: '6.1'
+          swift-version: '6.1'  # Change to your Swift version
 
-      - name: Build Vapor server
-        run: |
-          swift build -c release
+      # Step 3: Build in release mode
+      - name: Build Swift Release
+        run: swift build -c release
 
       - name: Upload server executable
         uses: actions/upload-artifact@v4
