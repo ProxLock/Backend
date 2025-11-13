@@ -1,0 +1,60 @@
+name: Build Vapor Server
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Install dependencies
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libjemalloc-dev \
+            libcurl4 \
+            ca-certificates \
+            tzdata \
+            libxml2
+
+      # 3. Install Swift 6.1 (matching your Dockerfile)
+      - name: Install Swift 6.1
+        uses: fwal/setup-swift@v2
+        with:
+          swift-version: '6.1'
+
+      # 4. Resolve Swift Package dependencies
+      - name: Resolve Swift packages
+        run: |
+          swift package resolve
+          $([ -f ./Package.resolved ] && echo "--force-resolved-versions" || true)
+
+      # 5. Build the server executable
+      - name: Build Vapor server
+        run: |
+          swift build -c release \
+            --product APIProxy \
+            --static-swift-stdlib \
+            -Xlinker -ljemalloc
+
+      # 6. Copy the executable to root directory for artifact upload
+      - name: Prepare artifact
+        run: |
+          BIN_PATH=$(swift build -c release --show-bin-path)
+          cp "$BIN_PATH/APIProxy" ./APIProxy
+
+      # 7. Upload the executable as an artifact
+      - name: Upload server executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: APIProxy-executable
+          path: ./APIProxy
