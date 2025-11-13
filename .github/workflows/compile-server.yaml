@@ -27,9 +27,3 @@ jobs:
       # Step 3: Build in release mode
       - name: Build Swift Release
         run: swift build -c release
-
-      # - name: Upload Executable
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: ProxLock
-      #     path: .build/release/ProxLock
