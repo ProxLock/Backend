@@ -71,8 +71,8 @@ struct DeviceValidationMiddlewear: AsyncMiddleware {
 }
 
 struct DeviceValidationHeaderKeys {
-    static let validationMode = "APIProxy_VALIDATION_MODE"
-    static let appleTeamID = "APIProxy_APPLE_TEAM_ID"
+    static let validationMode = "ProxLock_VALIDATION_MODE"
+    static let appleTeamID = "ProxLock_APPLE_TEAM_ID"
 }
 
 enum DeviceValidationMode: String, Codable, CaseIterable {

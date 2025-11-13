@@ -17,12 +17,12 @@ struct RequestProxyController: RouteCollection {
     /// Proxies a request to an external service using a split API key for secure authentication.
     /// 
     /// ## Required Headers
-    /// - APIProxy_ASSOCIATION_ID: The API key ID for authentication
-    /// - APIProxy_HTTP_METHOD: The HTTP method for the target request
-    /// - APIProxy_DESTINATION: The destination URL for the proxied request
+    /// - ProxLock_ASSOCIATION_ID: The API key ID for authentication
+    /// - ProxLock_HTTP_METHOD: The HTTP method for the target request
+    /// - ProxLock_DESTINATION: The destination URL for the proxied request
     /// 
     /// ## Partial Key Usage
-    /// Include your partial key in any header by wrapping it like: `%APIProxy_PARTIAL_KEY:<your_partial_key>%`
+    /// Include your partial key in any header by wrapping it like: `%ProxLock_PARTIAL_KEY:<your_partial_key>%`
     /// This will be replaced with the complete key before forwarding to the target service.
     /// 
     /// ## Request Body
@@ -49,7 +49,7 @@ struct RequestProxyController: RouteCollection {
         guard let dbKey = try await APIKey.find(UUID(uuidString: associationId), on: req.db) else {
             throw Abort(.badRequest, reason: "Key was not found")
         }
-        guard let userPartialKeyRange = partialKey.value.range(of: #"(?<=%APIProxy_PARTIAL_KEY:)[^%]+"#, options: .regularExpression) else {
+        guard let userPartialKeyRange = partialKey.value.range(of: #"(?<=%ProxLock_PARTIAL_KEY:)[^%]+"#, options: .regularExpression) else {
             throw Abort(.badRequest, reason: "Partial Key was not found")
         }
         let userPartialKey = String(partialKey.value[userPartialKeyRange])
@@ -64,10 +64,10 @@ struct RequestProxyController: RouteCollection {
 }
 
 struct ProxyHeaderKeys {
-    static let associationId = "APIProxy_ASSOCIATION_ID"
-    static let httpMethod = "APIProxy_HTTP_METHOD"
-    static let destination = "APIProxy_DESTINATION"
-    static let partialKeyIdentifier = "%APIProxy_PARTIAL_KEY:"
+    static let associationId = "ProxLock_ASSOCIATION_ID"
+    static let httpMethod = "ProxLock_HTTP_METHOD"
+    static let destination = "ProxLock_DESTINATION"
+    static let partialKeyIdentifier = "%ProxLock_PARTIAL_KEY:"
 }
 
 private enum ProxyError: Error {
