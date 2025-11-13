@@ -1,5 +1,5 @@
 # .github/workflows/build-release-ubuntu.yml
-name: Build Swift Release on Ubuntu
+name: Build ProxLock Release for Ubuntu
 
 on:
   push:
