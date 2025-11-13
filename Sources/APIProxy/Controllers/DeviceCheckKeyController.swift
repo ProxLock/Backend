@@ -38,7 +38,9 @@ struct DeviceCheckKeyController: RouteCollection {
         for project in projects {
             try await project.$deviceCheckKey.load(on: req.db)
             
-            guard let key = try await project.$deviceCheckKey.get(on: req.db) else { continue }
+            guard let key = try await project.$deviceCheckKey.get(on: req.db),
+                  !keys.contains(where: { $0.keyID == key.keyID && $0.teamID == key.teamID })
+            else { continue }
             keys.append(key)
         }
         
