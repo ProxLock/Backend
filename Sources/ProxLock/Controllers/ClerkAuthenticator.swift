@@ -9,6 +9,7 @@ import Foundation
 import Vapor
 import Fluent
 import JWT
+import JWTKit
 
 struct ClerkClaims: JWTPayload {
     var id: String
@@ -40,14 +41,12 @@ struct ClerkAuthenticator: AsyncBearerAuthenticator {
     static func verifyClerkToken(_ token: String, on req: Request) async throws -> ClerkClaims {
         do {
             return try await Self.verifyProdClerkToken(token, on: req)
-        } catch let error as JWTError {
+        } catch {
             do {
                 return try await Self.verifyDevClerkToken(token, on: req)
             } catch {
                 throw error
             }
-        } catch {
-            throw error
         }
     }
     
