@@ -33,10 +33,7 @@ jobs:
 
       - name: Build Vapor server
         run: |
-          swift build -c release \
-            --product ProxLock \
-            --static-swift-stdlib \
-            -Xlinker -ljemalloc
+          swift build -c release
 
       - name: Upload server executable
         uses: actions/upload-artifact@v4
