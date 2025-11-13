@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "APIProxy",
+    name: "ProxLock",
     platforms: [
        .macOS(.v13)
     ],
@@ -21,7 +21,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "APIProxy",
+            name: "ProxLock",
             dependencies: [
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
@@ -35,9 +35,9 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         .testTarget(
-            name: "APIProxyTests",
+            name: "ProxLockTests",
             dependencies: [
-                .target(name: "APIProxy"),
+                .target(name: "ProxLock"),
                 .product(name: "VaporTesting", package: "vapor"),
             ],
             swiftSettings: swiftSettings

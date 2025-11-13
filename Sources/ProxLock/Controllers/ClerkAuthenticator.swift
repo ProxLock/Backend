@@ -1,6 +1,6 @@
 //
 //  ClerkAuthenticator.swift
-//  APIProxy
+//  ProxLock
 //
 //  Created by Morris Richman on 10/21/25.
 //

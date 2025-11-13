@@ -17,6 +17,26 @@
             "name": "Release APIProxy",
             "program": "${workspaceFolder:backend}/.build/release/APIProxy",
             "preLaunchTask": "swift: Build Release APIProxy"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:backend}",
+            "name": "Debug ProxLock",
+            "target": "ProxLock",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ProxLock"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:backend}",
+            "name": "Release ProxLock",
+            "target": "ProxLock",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ProxLock"
         }
     ]
 }
