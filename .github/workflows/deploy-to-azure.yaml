@@ -27,34 +27,23 @@ jobs:
             docker build . -t proxlock.azurecr.io/proxlock:${{ github.sha }}
             docker push proxlock.azurecr.io/proxlock:${{ github.sha }}
 
-        - name: 'Deploy Postgres to Azure Container Instances'
+        - name: Deploy App + Postgres in one ACI group
           uses: azure/aci-deploy@v1
           with:
             resource-group: ProxLock
-            dns-name-label: postgres-container
-            image: postgres:16-alpine
-            name: postgres-container
-            registry-username: ${{ secrets.REGISTRY_USERNAME }}
-            registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-            azure-file-volume-share-name: postgres-store
-            azure-file-volume-account-name: proxlock
-            azure-file-volume-account-key: ${{ secrets.AZURE_FILE_VOLUME_KEY }}
-            azure-file-volume-mount-path: /mnt/volume1
-            secure-environment-variables: DATABASE_NAME=${{ secrets.DATABASE_NAME }} DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }} DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
-            location: 'west us 2'
-
-        - name: 'Deploy ProxLock to Azure Container Instances'
-          uses: azure/aci-deploy@v1
-          with:
-            resource-group: ProxLock
+            name: proxlock-container
             dns-name-label: proxlock-container
             image: proxlock.azurecr.io/proxlock:${{ github.sha }}
-            name: proxlock-container
-            azure-file-volume-share-name: postgres-store
-            azure-file-volume-account-name: proxlock
-            azure-file-volume-account-key: ${{ secrets.AZURE_FILE_VOLUME_KEY }}
-            azure-file-volume-mount-path: /mnt/volume1
-            secure-environment-variables: DATABASE_NAME=${{ secrets.DATABASE_NAME }} DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }} DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
-            location: 'west us 2'
-            cpu: 2   #Optional
-            memory: 4   #Optional
+            ports: 8080
+            os-type: Linux
+            restart-policy: Always
+            cpu: 2
+            memory: 4
+            # Add Postgres as a second container in same group
+            containers: |
+              postgres:
+                image: postgres:16-alpine
+                environment-variables: |
+                  POSTGRES_USER=${{ secrets.DATABASE_USERNAME }}
+                  POSTGRES_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+                  POSTGRES_DB=${{ secrets.DATABASE_NAME }}
