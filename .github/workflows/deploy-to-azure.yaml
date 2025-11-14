@@ -33,7 +33,7 @@ jobs:
         - name: 'Push to Azure Container Instances'
           uses: 'azure/aci-deploy@v1'
           with:
-            resource-group: proxlock
+            resource-group: ProxLock
             dns-name-label: proxlock-container
             image: proxlock.azurecr.io/proxlock:${{ github.sha }}
             cpu: 2   #Optional
@@ -46,7 +46,7 @@ jobs:
         - name: 'Deploy Postgres to Azure Container Instances'
           uses: azure/aci-deploy@v1
           with:
-            resource-group: proxlock
+            resource-group: ProxLock
             dns-name-label: postgres-container
             image: postgres:16-alpine
             name: postgres-container
@@ -59,7 +59,7 @@ jobs:
 
         - uses: Azure/aci-deploy@v1
           with:
-            resource-group: proxlock
+            resource-group: ProxLock
             dns-name-label: postgres-container
             image: proxlock:${{ github.sha }}
             name: proxlock-container
