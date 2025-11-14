@@ -36,6 +36,7 @@ jobs:
             image: proxlock.azurecr.io/proxlock:${{ github.sha }}
             ports: 8080
             os-type: Linux
+            location: 'west us 2'
             restart-policy: Always
             cpu: 2
             memory: 4
