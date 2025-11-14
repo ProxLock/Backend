@@ -1,4 +1,4 @@
-name: Deploy ProxLock to Azure
+name: Push ProxLock to Azure
 
 on:
   push:
@@ -24,21 +24,5 @@ jobs:
             username: ${{ secrets.REGISTRY_USERNAME }}
             password: ${{ secrets.REGISTRY_PASSWORD }}
         - run: |
-            docker build . -t proxlock.azurecr.io/proxlock:${{ github.sha }}
-            docker push proxlock.azurecr.io/proxlock:${{ github.sha }}
-
-        - name: Deploy ProxLock to Azure Container Instances
-          uses: azure/aci-deploy@v1
-          with:
-            resource-group: ProxLock
-            name: proxlock-app
-            dns-name-label: proxlock-app
-            image: proxlock.azurecr.io/proxlock:${{ github.sha }}
-            ports: 8080
-            os-type: Linux
-            location: 'west us 2'
-            restart-policy: Always
-            command-line: serve --env production --hostname 0.0.0.0 --port 8080
-            secure-environment-variables: POSTGRES_USER=${{ secrets.DATABASE_USERNAME }} POSTGRES_PASSWORD=${{ secrets.DATABASE_PASSWORD }} POSTGRES_DB=${{ secrets.DATABASE_NAME }} DATABASE_HOST=${{ secrets.DATABASE_HOST }}
-            cpu: 2
-            memory: 4
+            docker build . -t proxlock.azurecr.io/proxlock:latest
+            docker push proxlock.azurecr.io/proxlock:latest
