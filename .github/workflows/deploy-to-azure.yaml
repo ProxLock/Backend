@@ -1,0 +1,71 @@
+name: Build Swift Release in Docker
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        steps:
+        # checkout the repo
+        - name: 'Checkout GitHub Action'
+          uses: actions/checkout@v3
+          
+        - name: 'Login via Azure CLI'
+          uses: azure/login@v1
+          with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+        - uses: azure/docker-login@v1
+          with:
+            login-server: proxlock.azurecr.io
+            username: ${{ secrets.REGISTRY_USERNAME }}
+            password: ${{ secrets.REGISTRY_PASSWORD }}
+        - run: |
+            docker build . -t proxlock.azurecr.io/proxlock:${{ github.sha }}
+            docker push proxlock.azurecr.io/proxlock:${{ github.sha }}
+
+        - name: 'Push to Azure Container Instances'
+          uses: 'azure/aci-deploy@v1'
+          with:
+            resource-group: proxlock
+            dns-name-label: proxlock-container
+            image: proxlock.azurecr.io/proxlock:${{ github.sha }}
+            cpu: 2   #Optional
+            memory: 4   #Optional
+            registry-username: ${{ secrets.REGISTRY_USERNAME }}
+            registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+            name: proxlock-container
+            location: 'west us 2'
+
+        - name: 'Deploy Postgres to Azure Container Instances'
+          uses: azure/aci-deploy@v1
+          with:
+            resource-group: proxlock
+            dns-name-label: postgres-container
+            image: postgres:16-alpine
+            name: postgres-container
+            azure-file-volume-share-name: postgres-store
+            azure-file-volume-account-name: proxlock
+            azure-file-volume-account-key: ${{ secrets.AZURE_FILE_VOLUME_KEY }}
+            azure-file-volume-mount-path: /mnt/volume1
+            secure-environment-variables: DATABASE_NAME=${{ secrets.DATABASE_NAME }} DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }} DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+            location: 'west us 2'
+
+        - uses: Azure/aci-deploy@v1
+          with:
+            resource-group: proxlock
+            dns-name-label: postgres-container
+            image: proxlock:${{ github.sha }}
+            name: proxlock-container
+            azure-file-volume-share-name: postgres-store
+            azure-file-volume-account-name: proxlock
+            azure-file-volume-account-key: ${{ secrets.AZURE_FILE_VOLUME_KEY }}
+            azure-file-volume-mount-path: /mnt/volume1
+            secure-environment-variables: DATABASE_NAME=${{ secrets.DATABASE_NAME }} DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }} DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+            location: 'west us 2'
