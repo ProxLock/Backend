@@ -3,10 +3,10 @@ name: Build Swift Release in Docker
 on:
   push:
     branches:
-      - master
+      # - master
   pull_request:
     branches:
-      - master
+      # - master
 
 jobs:
   build:
