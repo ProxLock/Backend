@@ -31,7 +31,7 @@ jobs:
           uses: azure/aci-deploy@v1
           with:
             resource-group: ProxLock
-            dns-name-label: proxlock-container
+            dns-name-label: postgres-container
             image: postgres:16-alpine
             name: postgres-container
             registry-username: ${{ secrets.REGISTRY_USERNAME }}
