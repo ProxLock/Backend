@@ -51,6 +51,11 @@ struct RequestProxyController: RouteCollection {
             throw Abort(.badRequest, reason: "Key was not found")
         }
         
+        // Validate user is under request limit
+        guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey) else {
+            throw Abort(.forbidden, reason: "Beyond request limit")
+        }
+        
         let checkingUrls = (dbKey.whitelistedUrls ?? []).filter { getHostFromString($0) == destinationUrl.host }
         
         // Ensure the url is allowed
@@ -87,6 +92,20 @@ struct RequestProxyController: RouteCollection {
         return try await req.client.send(request)
     }
     
+    private func validateUserLimitAllowsRequest(req: Request, dbKey: APIKey) async throws -> Bool {
+        // Get Project
+        try await dbKey.$project.load(on: req.db)
+        let project = try await dbKey.$project.get(on: req.db)
+        
+        // Get User
+        try await project.$user.load(on: req.db)
+        let user = try await project.$user.get(on: req.db)
+        
+        let currentRecord = try await user.getOrCreateCurrentHistoricalRecord(req: req)
+        
+        return currentRecord.requestCount < (user.currentSubscription ?? .free).requestLimit
+    }
+    
     private func addToUsersRequestHistory(req: Request, dbKey: APIKey) async throws {
         // Get Project
         try await dbKey.$project.load(on: req.db)
@@ -100,21 +119,7 @@ struct RequestProxyController: RouteCollection {
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .gmt
         
-        var historyEntry = try await UserUsageHistory.query(on: req.db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == user.requireID()).with(\.$user).first()
-        
-        if historyEntry == nil {
-            let newEntry = UserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? .free, month: Date().startOfMonth())
-            
-            newEntry.$user.id = try user.requireID()
-            
-            try await newEntry.save(on: req.db)
-            
-            historyEntry = newEntry
-        }
-        
-        guard let historyEntry else {
-            throw Abort(.internalServerError)
-        }
+        let historyEntry = try await user.getOrCreateCurrentHistoricalRecord(req: req)
         
         // Update Entry
         historyEntry.requestCount += 1

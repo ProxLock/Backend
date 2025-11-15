@@ -41,6 +41,30 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             currentSubscription: currentSubscription
         )
     }
+    
+    func getOrCreateCurrentHistoricalRecord(req: Request) async throws -> UserUsageHistory {
+        // Get Historical Log
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.timeZone = .gmt
+        
+        var historyEntry = try await UserUsageHistory.query(on: req.db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
+        
+        if historyEntry == nil {
+            let newEntry = UserUsageHistory(requestCount: 0, subscription: currentSubscription ?? .free, month: Date().startOfMonth())
+            
+            newEntry.$user.id = try requireID()
+            
+            try await newEntry.save(on: req.db)
+            
+            historyEntry = newEntry
+        }
+        
+        guard let historyEntry else {
+            throw Abort(.internalServerError)
+        }
+        
+        return historyEntry
+    }
 }
 
 extension Sequence {
