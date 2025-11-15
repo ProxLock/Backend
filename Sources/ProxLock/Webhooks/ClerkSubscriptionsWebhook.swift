@@ -10,7 +10,7 @@ import Fluent
 
 struct ClerkSubscriptionsWebhook: RouteCollection {
     func boot(routes: any RoutesBuilder) throws {
-        routes.post(use: handleWebhook)
+        routes.post("subscriptions", use: handleWebhook)
     }
     
     @Sendable

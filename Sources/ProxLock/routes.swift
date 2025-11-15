@@ -12,6 +12,10 @@ app.get { req async in
     
     try registerV1Routes(app.grouped("v1"))
     try registerV1Routes(app)
+    
+    // Webhooks
+    let webhooks = app.grouped("webhooks")
+    try webhooks.register(collection: ClerkSubscriptionsWebhook())
 }
 
 private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
