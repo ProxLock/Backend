@@ -47,3 +47,10 @@ class ClerkWebhookManager {
         return signatures.contains(expectedSignature)
     }
 }
+
+enum SubscriptionStatus: String, Codable {
+    case active
+    case cancelled
+    case ended
+    case upcoming
+}

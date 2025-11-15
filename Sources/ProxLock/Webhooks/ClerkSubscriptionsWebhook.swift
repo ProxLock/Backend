@@ -35,7 +35,7 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         
         let items = webhookItem.data.items
         
-        guard let activeItem = items.first(where: { $0.periodStart < Date() && $0.periodEnd > Date()}) else {
+        guard let activeItem = items.first(where: { ($0.periodStart < Date() && $0.periodEnd > Date() && $0.status != .ended) || $0.status == .active }) else {
             throw Abort(.internalServerError)
         }
         
@@ -101,24 +101,9 @@ private struct Item: Codable {
     let id, interval, object: String
     let periodEnd, periodStart: Date
     let plan: Plan
-    let planId, status: String
+    let planId: String
+    let status: SubscriptionStatus
     let updatedAt: Date
-    
-    init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
-        self.id = try container.decode(String.self, forKey: .id)
-        self.interval = try container.decode(String.self, forKey: .interval)
-        self.object = try container.decode(String.self, forKey: .object)
-        self.periodEnd = try container.decode(Date.self, forKey: .periodEnd)
-        self.periodStart = try container.decode(Date.self, forKey: .periodStart)
-        self.plan = try container.decode(Plan.self, forKey: .plan)
-        self.planId = try container.decode(String.self, forKey: .planId)
-        self.status = try container.decode(String.self, forKey: .status)
-        self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
-    }
-    
-    
 }
 
 // MARK: - Plan
