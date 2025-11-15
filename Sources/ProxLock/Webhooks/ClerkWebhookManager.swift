@@ -7,7 +7,7 @@
 
 import Foundation
 import Vapor
-import CryptoKit
+import Crypto
 
 /// A class for holding common Clerk webhook data and functions.
 class ClerkWebhookManager {
