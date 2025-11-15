@@ -34,27 +34,34 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         try await $projects.load(on: db)
         let projects = try await $projects.get(on: db)
         let projectsDTOs = try await projects.asyncMap({ try await $0.toDTO(on: db) })
+        let currentRecord = try await getOrCreateCurrentHistoricalRecord(db: db)
         
         return .init(
             id: self.clerkID,
             projects: projectsDTOs,
-            currentSubscription: currentSubscription
+            currentSubscription: currentSubscription ?? .free,
+            currentRequestUsage: currentRecord.requestCount,
+            requestLimit: (currentSubscription ?? .free).requestLimit
         )
     }
     
     func getOrCreateCurrentHistoricalRecord(req: Request) async throws -> UserUsageHistory {
+        try await getOrCreateCurrentHistoricalRecord(db: req.db)
+    }
+    
+    func getOrCreateCurrentHistoricalRecord(db: any Database) async throws -> UserUsageHistory {
         // Get Historical Log
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .gmt
         
-        var historyEntry = try await UserUsageHistory.query(on: req.db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
+        var historyEntry = try await UserUsageHistory.query(on: db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
         
         if historyEntry == nil {
             let newEntry = UserUsageHistory(requestCount: 0, subscription: currentSubscription ?? .free, month: Date().startOfMonth())
             
             newEntry.$user.id = try requireID()
             
-            try await newEntry.save(on: req.db)
+            try await newEntry.save(on: db)
             
             historyEntry = newEntry
         }

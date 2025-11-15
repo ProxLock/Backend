@@ -5,4 +5,6 @@ struct UserDTO: Content {
     var id: String?
     let projects: [ProjectDTO]?
     let currentSubscription: SubscriptionPlans?
+    let currentRequestUsage: Int?
+    let requestLimit: Int?
 }
