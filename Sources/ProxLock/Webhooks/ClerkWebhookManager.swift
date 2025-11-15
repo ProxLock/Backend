@@ -50,7 +50,7 @@ class ClerkWebhookManager {
 
 enum SubscriptionStatus: String, Codable {
     case active
-    case cancelled
+    case canceled
     case ended
     case upcoming
 }
