@@ -15,9 +15,9 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
     
     @Sendable
     func handleWebhook(req: Request) async throws -> HTTPStatus {
-        guard let svixId = req.headers.first(name: "SVIX-ID"),
-              let svixSignature = req.headers.first(name: "SVIX-Signature"),
-              let svixTimestamp = req.headers.first(name: "SVIX-Timestamp"),
+        guard let svixId = req.headers.first(name: "SVIX-Id"),
+              let svixSignature = req.headers.first(name: "SVIX-SIGNATURE"),
+              let svixTimestamp = req.headers.first(name: "SVIX-TIMESTAMP"),
               ClerkWebhookManager.isSivxSignatureValid(svixID: svixId, svixTimestamp: svixTimestamp, svixSignature: svixSignature, body: req.body.string ?? "")
         else {
             throw Abort(.unauthorized)
@@ -25,10 +25,15 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         
         let jsonDecoder = JSONDecoder()
         jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
+        jsonDecoder.dateDecodingStrategy = .integerSecondsSince1970
+    
+        guard let buffer = req.body.data else {
+            throw Abort(.internalServerError)
+        }
         
-        let webhookItem: SubscriptionWebhookItem = try req.content.decode(SubscriptionWebhookItem.self, using: jsonDecoder)
+        let webhookItem: SubscriptionWebhookItem = try jsonDecoder.decode(SubscriptionWebhookItem.self, from: buffer)
         
-        guard let user = try await User.query(on: req.db).filter(\.$clerkID == webhookItem.data.payer.userID).first() else {
+        guard let user = try await User.query(on: req.db).filter(\.$clerkID == webhookItem.data.payer.userId).first() else {
             throw Abort(.notFound)
         }
         
@@ -77,7 +82,7 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
 // MARK: - Welcome
 private struct SubscriptionWebhookItem: Codable {
     let data: DataClass
-    let instanceID, object: String
+    let instanceId, object: String
     let timestamp: Date
     let type: String
 }
@@ -88,9 +93,9 @@ private struct DataClass: Codable {
     let createdAt: Date
     let id: String
     let items: [Item]
-    let latestPaymentID, object: String
+    let latestPaymentId, object: String
     let payer: Payer
-    let payerID, paymentSourceID, status: String
+    let payerId, paymentSourceId, status: String
     let updatedAt: Date
 }
 
@@ -100,8 +105,24 @@ private struct Item: Codable {
     let id, interval, object: String
     let periodEnd, periodStart: Date
     let plan: Plan
-    let planID, status: String
+    let planId, status: String
     let updatedAt: Date
+    
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.interval = try container.decode(String.self, forKey: .interval)
+        self.object = try container.decode(String.self, forKey: .object)
+        self.periodEnd = try container.decode(Date.self, forKey: .periodEnd)
+        self.periodStart = try container.decode(Date.self, forKey: .periodStart)
+        self.plan = try container.decode(Plan.self, forKey: .plan)
+        self.planId = try container.decode(String.self, forKey: .planId)
+        self.status = try container.decode(String.self, forKey: .status)
+        self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
+    
+    
 }
 
 // MARK: - Plan
@@ -130,6 +151,6 @@ enum SubscriptionPlans: String, Codable {
 // MARK: - Payer
 private struct Payer: Codable {
     let email, firstName, id: String
-    let imageURL: String
-    let lastName, organizationID, organizationName, userID: String
+    let imageUrl: String
+    let lastName, organizationId, organizationName, userId: String
 }
