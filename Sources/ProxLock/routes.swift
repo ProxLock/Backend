@@ -6,8 +6,8 @@ app.get { req async in
         "It works!"
     }
 
-    app.get("hello") { req async -> String in
-        "Hello, world!"
+    app.get("version") { req async -> String in
+        "Running commit: %%REPLACE_HERE_IN_CI%%"
     }
     
     try registerV1Routes(app.grouped("v1"))

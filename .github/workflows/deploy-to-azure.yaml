@@ -12,6 +12,10 @@ jobs:
         # checkout the repo
         - name: 'Checkout GitHub Action'
           uses: actions/checkout@v3
+        
+        - name: 'Set commit SHA in routes.swift'
+          run: |
+            sed -i "s|%%REPLACE_HERE_IN_CI%%|${{ github.sha }}|g" Sources/ProxLock/routes.swift
           
         - name: 'Login via Azure CLI'
           uses: azure/login@v1
