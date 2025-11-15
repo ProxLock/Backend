@@ -14,6 +14,12 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "clerk_id")
     var clerkID: String
     
+    @Field(key: "current_subscription")
+    var currentSubscription: String?
+    
+    @Children(for: \.$user)
+    var usageHistory: [UserUsageHistory]
+    
     @Children(for: \.$user)
     var projects: [Project]
 
@@ -31,7 +37,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         
         return .init(
             id: self.clerkID,
-            projects: projectsDTOs
+            projects: projectsDTOs,
+            currentSubscription: currentSubscription
         )
     }
 }

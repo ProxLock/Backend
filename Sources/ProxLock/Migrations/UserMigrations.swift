@@ -31,7 +31,21 @@ extension User: Migratable {
             try await database.schema(User.schema)
                 .deleteField("clerk_id")
                 .field("name", .string, .required)
-                .create()
+                .update()
+        }
+    }
+    
+    struct AddBillToUserMigration: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(User.schema)
+                .field("current_subscription", .string)
+                .update()
+        }
+        
+        func revert(on database: any Database) async throws {
+            try await database.schema(User.schema)
+                .deleteField("current_subscription")
+                .update()
         }
     }
 }
