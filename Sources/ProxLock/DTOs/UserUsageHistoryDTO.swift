@@ -4,6 +4,6 @@ import Vapor
 struct UserUsageHistoryDTO: Content {
     let id: UUID
     let requestCount: Int
-    let subscription: String
+    let subscription: Set<SubscriptionPlans>
     let month: Date
 }

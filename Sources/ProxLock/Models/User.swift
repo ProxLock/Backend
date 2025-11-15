@@ -14,8 +14,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "clerk_id")
     var clerkID: String
     
-    @Field(key: "current_subscription")
-    var currentSubscription: String?
+    @OptionalEnum(key: "current_subscription")
+    var currentSubscription: SubscriptionPlans?
     
     @Children(for: \.$user)
     var usageHistory: [UserUsageHistory]

@@ -18,17 +18,17 @@ final class UserUsageHistory: Model, @unchecked Sendable {
     var month: Date
     
     @Field(key: "subscription")
-    var subscription: String
+    var subscription: Set<SubscriptionPlans>
     
     @Parent(key: "user_id")
     var user: User
 
     init() {}
     
-    init(id: UUID? = nil, requestCount: Int, subscription: String, month: Date) {
+    init(id: UUID? = nil, requestCount: Int, subscription: SubscriptionPlans, month: Date) {
         self.id = id
         self.requestCount = requestCount
-        self.subscription = subscription
+        self.subscription = [subscription]
         self.month = month
     }
     

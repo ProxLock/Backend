@@ -1,0 +1,135 @@
+//
+//  ClerkSubscriptionsWebhook.swift
+//  ProxLock
+//
+//  Created by Morris Richman on 11/14/25.
+//
+
+import Vapor
+import Fluent
+
+struct ClerkSubscriptionsWebhook: RouteCollection {
+    func boot(routes: any RoutesBuilder) throws {
+        routes.post(use: handleWebhook)
+    }
+    
+    @Sendable
+    func handleWebhook(req: Request) async throws -> HTTPStatus {
+        guard let svixId = req.headers.first(name: "SVIX-ID"),
+              let svixSignature = req.headers.first(name: "SVIX-Signature"),
+              let svixTimestamp = req.headers.first(name: "SVIX-Timestamp"),
+              ClerkWebhookManager.isSivxSignatureValid(svixID: svixId, svixTimestamp: svixTimestamp, svixSignature: svixSignature, body: req.body.string ?? "")
+        else {
+            throw Abort(.unauthorized)
+        }
+        
+        let jsonDecoder = JSONDecoder()
+        jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
+        
+        let webhookItem: SubscriptionWebhookItem = try req.content.decode(SubscriptionWebhookItem.self, using: jsonDecoder)
+        
+        guard let user = try await User.query(on: req.db).filter(\.$clerkID == webhookItem.data.payer.userID).first() else {
+            throw Abort(.notFound)
+        }
+        
+        let items = webhookItem.data.items
+        
+        guard let activeItem = items.first(where: { $0.periodStart < Date() && $0.periodEnd > Date()}) else {
+            throw Abort(.internalServerError)
+        }
+        
+        user.currentSubscription = activeItem.plan.slug
+        try await user.save(on: req.db)
+        
+        let currentUsageRecord = try await getOrCreateCurrentHistoricalRecord(req: req, user: user)
+        currentUsageRecord.subscription.insert(activeItem.plan.slug)
+        
+        try await currentUsageRecord.save(on: req.db)
+        
+        return .noContent
+    }
+    
+    private func getOrCreateCurrentHistoricalRecord(req: Request, user: User) async throws -> UserUsageHistory {
+        // Get Historical Log
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.timeZone = .gmt
+        
+        var historyEntry = try await UserUsageHistory.query(on: req.db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == user.requireID()).with(\.$user).first()
+        
+        if historyEntry == nil {
+            let newEntry = UserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? .free, month: Date().startOfMonth())
+            
+            newEntry.$user.id = try user.requireID()
+            
+            try await newEntry.save(on: req.db)
+            
+            historyEntry = newEntry
+        }
+        
+        guard let historyEntry else {
+            throw Abort(.internalServerError)
+        }
+        
+        return historyEntry
+    }
+}
+
+// MARK: - Welcome
+private struct SubscriptionWebhookItem: Codable {
+    let data: DataClass
+    let instanceID, object: String
+    let timestamp: Date
+    let type: String
+}
+
+// MARK: - DataClass
+private struct DataClass: Codable {
+    let activeAt: Date
+    let createdAt: Date
+    let id: String
+    let items: [Item]
+    let latestPaymentID, object: String
+    let payer: Payer
+    let payerID, paymentSourceID, status: String
+    let updatedAt: Date
+}
+
+// MARK: - Item
+private struct Item: Codable {
+    let createdAt: Date
+    let id, interval, object: String
+    let periodEnd, periodStart: Date
+    let plan: Plan
+    let planID, status: String
+    let updatedAt: Date
+}
+
+// MARK: - Plan
+private struct Plan: Codable {
+    let amount: Int
+    let currency, id: String
+    let isRecurring: Bool
+    let name: String
+    let slug: SubscriptionPlans
+}
+
+enum SubscriptionPlans: String, Codable {
+    case free = "free_user"
+    case tenThousandRequests = "10k_requests"
+    case twentyFiveThousandRequests = "25k_requests"
+    
+    var requestLimit: Int {
+        switch self {
+        case .free: return 1000
+        case .tenThousandRequests: return 10_000
+        case .twentyFiveThousandRequests: return 25_000
+        }
+    }
+}
+
+// MARK: - Payer
+private struct Payer: Codable {
+    let email, firstName, id: String
+    let imageURL: String
+    let lastName, organizationID, organizationName, userID: String
+}

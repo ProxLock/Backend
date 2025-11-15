@@ -103,7 +103,7 @@ struct RequestProxyController: RouteCollection {
         var historyEntry = try await UserUsageHistory.query(on: req.db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == user.requireID()).with(\.$user).first()
         
         if historyEntry == nil {
-            let newEntry = UserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? "free_user", month: Date().startOfMonth())
+            let newEntry = UserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? .free, month: Date().startOfMonth())
             
             newEntry.$user.id = try user.requireID()
             
