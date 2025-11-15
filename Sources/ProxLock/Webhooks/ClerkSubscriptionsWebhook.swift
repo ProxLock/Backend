@@ -25,7 +25,7 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         
         let jsonDecoder = JSONDecoder()
         jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
-        jsonDecoder.dateDecodingStrategy = .integerSecondsSince1970
+        jsonDecoder.dateDecodingStrategy = .millisecondsSince1970
     
         guard let buffer = req.body.data else {
             throw Abort(.internalServerError)
