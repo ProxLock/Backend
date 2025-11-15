@@ -42,7 +42,7 @@ class ClerkWebhookManager {
             return false
         }
         
-        let signatures = svixSignature.split(separator: "").map({ String($0).replacingOccurrences(of: "v1,", with: "") })
+        let signatures = svixSignature.split(separator: " ").map({ String($0).replacingOccurrences(of: "v1,", with: "") })
         
         return signatures.contains(expectedSignature)
     }
