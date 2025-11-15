@@ -26,12 +26,8 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         let jsonDecoder = JSONDecoder()
         jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
         jsonDecoder.dateDecodingStrategy = .millisecondsSince1970
-    
-        guard let buffer = req.body.data else {
-            throw Abort(.internalServerError)
-        }
         
-        let webhookItem: SubscriptionWebhookItem = try jsonDecoder.decode(SubscriptionWebhookItem.self, from: buffer)
+        let webhookItem: SubscriptionWebhookItem = try req.content.decode(SubscriptionWebhookItem.self, using: jsonDecoder)
         
         guard let user = try await User.query(on: req.db).filter(\.$clerkID == webhookItem.data.payer.userId).first() else {
             throw Abort(.notFound)
