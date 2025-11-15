@@ -75,7 +75,7 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
     }
 }
 
-// MARK: - Welcome
+// MARK: - Top Level Webhook Item
 private struct SubscriptionWebhookItem: Codable {
     let data: DataClass
     let instanceId, object: String
