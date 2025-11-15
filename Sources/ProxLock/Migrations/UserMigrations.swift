@@ -3,7 +3,8 @@ import Fluent
 extension User: Migratable {
     static let migrations: [any Migration] = [
         CreateUserMigration(),
-        UpdateUserToClerkMigration()
+        UpdateUserToClerkMigration(),
+        AddBillToUserMigration()
     ]
     
     struct CreateUserMigration: AsyncMigration {

@@ -82,7 +82,43 @@ struct RequestProxyController: RouteCollection {
         
         let request = ClientRequest(method: .RAW(value: httpMethod), url: URI(string: destinationString), headers: headers, body: req.body.data)
         
+        try await addToUsersRequestHistory(req: req, dbKey: dbKey)
+        
         return try await req.client.send(request)
+    }
+    
+    private func addToUsersRequestHistory(req: Request, dbKey: APIKey) async throws {
+        // Get Project
+        try await dbKey.$project.load(on: req.db)
+        let project = try await dbKey.$project.get(on: req.db)
+        
+        // Get User
+        try await project.$user.load(on: req.db)
+        let user = try await project.$user.get(on: req.db)
+        
+        // Get Historical Log
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.timeZone = .gmt
+        
+        var historyEntry = try await UserUsageHistory.query(on: req.db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == user.requireID()).with(\.$user).first()
+        
+        if historyEntry == nil {
+            let newEntry = UserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? "free_user", month: Date().startOfMonth())
+            
+            newEntry.$user.id = try user.requireID()
+            
+            try await newEntry.save(on: req.db)
+            
+            historyEntry = newEntry
+        }
+        
+        guard let historyEntry else {
+            throw Abort(.internalServerError)
+        }
+        
+        // Update Entry
+        historyEntry.requestCount += 1
+        try await historyEntry.save(on: req.db)
     }
     
     private func getHostFromString(_ string: String) -> String? {
@@ -103,4 +139,15 @@ struct ProxyHeaderKeys {
 
 private enum ProxyError: Error {
     case associationIdMissing, partialKeyMissing, httpMethodMissing, destinationMissing
+}
+
+extension Date {
+    func startOfMonth(calendar: Calendar = .autoupdatingCurrent) -> Date {
+        var components = calendar.dateComponents([.year, .month], from: self)
+        components.hour = 0
+        components.minute = 0
+        components.second = 0
+        components.nanosecond = 0
+        return calendar.date(from: components) ?? self
+    }
 }
