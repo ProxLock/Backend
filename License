@@ -1,3 +1,30 @@
-No license is provided to any person or entity for any form of use. This project is currently public for the sole purpose of sharing progress. 
+Copyright (c) 2025 ProxLock
 
-Any use beyond the definition of this license will be prosecuted to the fullest extent of the law. 
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, subject to the following conditions:
+
+1. **Non-Commercial Use Only by Default.**
+   Use of the Software for any commercial purpose requires prior written
+   permission from ProxLock. To request commercial-use authorization,
+   contact: commercial-use@proxlock.dev.
+
+2. **Commercial Use Definition.**
+   "Commercial use" includes any use of the Software in a product, service,
+   or environment that generates revenue, is sold, is part of a paid offering,
+   or is used by an organization primarily for business operations.
+
+3. **Notice Requirement.**
+   The above copyright notice, this permission notice, and the
+   Non-Commercial Use clause shall be included in all copies or substantial
+   portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
