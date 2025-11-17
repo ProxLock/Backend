@@ -162,9 +162,11 @@ We welcome contributions to ProxLock! Here's how you can help:
 ### Getting Started
 
 1. **Fork the repository** and clone your fork
-2. **Create a feature branch** from `master`:
+2. **Create a new branch** for your feature or bug fix:
    ```bash
    git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/your-bug-fix
    ```
 
 3. **Make your changes** following these guidelines:
