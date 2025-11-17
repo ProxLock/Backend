@@ -42,36 +42,12 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         user.currentSubscription = activeItem.plan.slug
         try await user.save(on: req.db)
         
-        let currentUsageRecord = try await getOrCreateCurrentHistoricalRecord(req: req, user: user)
+        let currentUsageRecord = try await user.getOrCreateCurrentHistoricalRecord(req: req)
         currentUsageRecord.subscription.insert(activeItem.plan.slug)
         
         try await currentUsageRecord.save(on: req.db)
         
         return .noContent
-    }
-    
-    private func getOrCreateCurrentHistoricalRecord(req: Request, user: User) async throws -> UserUsageHistory {
-        // Get Historical Log
-        var calendar = Calendar.autoupdatingCurrent
-        calendar.timeZone = .gmt
-        
-        var historyEntry = try await UserUsageHistory.query(on: req.db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == user.requireID()).with(\.$user).first()
-        
-        if historyEntry == nil {
-            let newEntry = UserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? .free, month: Date().startOfMonth())
-            
-            newEntry.$user.id = try user.requireID()
-            
-            try await newEntry.save(on: req.db)
-            
-            historyEntry = newEntry
-        }
-        
-        guard let historyEntry else {
-            throw Abort(.internalServerError)
-        }
-        
-        return historyEntry
     }
 }
 
