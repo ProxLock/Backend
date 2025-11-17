@@ -32,7 +32,7 @@ class ClerkWebhookManager {
             for: Data(signedContent.utf8),
             using: key
         )
-
+ 
         // 4. Base64 output
         return Data(mac).base64EncodedString()
     }
