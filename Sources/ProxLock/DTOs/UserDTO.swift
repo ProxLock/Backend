@@ -7,4 +7,5 @@ struct UserDTO: Content {
     let currentSubscription: SubscriptionPlans?
     let currentRequestUsage: Int?
     let requestLimit: Int?
+    var justRegistered: Bool?
 }

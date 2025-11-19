@@ -38,7 +38,10 @@ struct UserController: RouteCollection {
         let user = User(clerkID: claims.id)
         try await user.save(on: req.db)
         
-        return try await user.toDTO(on: req.db)
+        var dto = try await user.toDTO(on: req.db)
+        dto.justRegistered = true
+        
+        return dto
     }
     
     /// GET /me
