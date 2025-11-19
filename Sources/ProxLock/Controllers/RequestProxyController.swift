@@ -34,11 +34,18 @@ struct RequestProxyController: RouteCollection {
     @Sendable
     func proxyRequest(req: Request) async throws -> ClientResponse {
         var headers = req.headers
-        guard let associationId = headers.first(name: ProxyHeaderKeys.associationId) else { throw ProxyError.associationIdMissing }
-        guard let partialKey = headers.first(where: { $0.value.contains(ProxyHeaderKeys.partialKeyIdentifier)}) else { throw ProxyError.partialKeyMissing }
-        guard let httpMethod = headers.first(name: ProxyHeaderKeys.httpMethod) else { throw ProxyError.httpMethodMissing }
-        guard let destinationString = headers.first(name: ProxyHeaderKeys.destination), let destinationUrl = URL(string: destinationString)
-        else { throw ProxyError.destinationMissing }
+        guard let associationId = headers.first(name: ProxyHeaderKeys.associationId) else {
+            throw Abort(.badRequest, reason: ProxyError.associationIdMissing.localizedDescription)
+        }
+        guard let partialKey = headers.first(where: { $0.value.contains(ProxyHeaderKeys.partialKeyIdentifier)}) else {
+            throw Abort(.badRequest, reason: ProxyError.partialKeyMissing.localizedDescription)
+        }
+        guard let httpMethod = headers.first(name: ProxyHeaderKeys.httpMethod) else {
+            throw Abort(.badRequest, reason: ProxyError.httpMethodMissing.localizedDescription)
+        }
+        guard let destinationString = headers.first(name: ProxyHeaderKeys.destination), let destinationUrl = URL(string: destinationString) else {
+            throw Abort(.badRequest, reason: ProxyError.destinationMissing.localizedDescription)
+        }
         
         headers.remove(name: ProxyHeaderKeys.destination)
         headers.remove(name: ProxyHeaderKeys.httpMethod)
@@ -144,6 +151,15 @@ struct ProxyHeaderKeys {
 
 private enum ProxyError: Error {
     case associationIdMissing, partialKeyMissing, httpMethodMissing, destinationMissing
+    
+    var localizedDescription: String {
+        switch self {
+        case .associationIdMissing: return "Association ID missing from request."
+        case .partialKeyMissing: return "Partial key missing from request."
+        case .httpMethodMissing: return "HTTP method missing from request."
+        case .destinationMissing: return "Destination missing from request."
+        }
+    }
 }
 
 extension Date {
