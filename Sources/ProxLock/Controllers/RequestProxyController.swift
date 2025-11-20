@@ -108,7 +108,7 @@ struct RequestProxyController: RouteCollection {
         try await project.$user.load(on: req.db)
         let user = try await project.$user.get(on: req.db)
         
-        let currentRecord = try await user.getOrCreateCurrentHistoricalRecord(req: req)
+        let currentRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         
         return currentRecord.requestCount < (user.currentSubscription ?? .free).requestLimit
     }
@@ -126,11 +126,15 @@ struct RequestProxyController: RouteCollection {
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .gmt
         
-        let historyEntry = try await user.getOrCreateCurrentHistoricalRecord(req: req)
+        let monthlyEntry = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         
         // Update Entry
-        historyEntry.requestCount += 1
-        try await historyEntry.save(on: req.db)
+        monthlyEntry.requestCount += 1
+        try await monthlyEntry.save(on: req.db)
+        
+        let dailyEntry = try await monthlyEntry.getOrCreateCurrentDailyHistoricalRecord(req: req)
+        dailyEntry.requestCount += 1
+        try await dailyEntry.save(on: req.db)
     }
     
     private func getHostFromString(_ string: String) -> String? {
@@ -159,16 +163,5 @@ private enum ProxyError: Error {
         case .httpMethodMissing: return "HTTP method missing from request."
         case .destinationMissing: return "Destination missing from request."
         }
-    }
-}
-
-extension Date {
-    func startOfMonth(calendar: Calendar = .autoupdatingCurrent) -> Date {
-        var components = calendar.dateComponents([.year, .month], from: self)
-        components.hour = 0
-        components.minute = 0
-        components.second = 0
-        components.nanosecond = 0
-        return calendar.date(from: components) ?? self
     }
 }

@@ -18,7 +18,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     var currentSubscription: SubscriptionPlans?
     
     @Children(for: \.$user)
-    var usageHistory: [UserUsageHistory]
+    var usageHistory: [MonthlyUserUsageHistory]
     
     @Children(for: \.$user)
     var projects: [Project]
@@ -34,7 +34,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         try await $projects.load(on: db)
         let projects = try await $projects.get(on: db)
         let projectsDTOs = try await projects.asyncMap({ try await $0.toDTO(on: db) })
-        let currentRecord = try await getOrCreateCurrentHistoricalRecord(db: db)
+        let currentRecord = try await getOrCreateCurrentMonthlyHistoricalRecord(db: db)
         
         return .init(
             id: self.clerkID,
@@ -45,19 +45,19 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         )
     }
     
-    func getOrCreateCurrentHistoricalRecord(req: Request) async throws -> UserUsageHistory {
-        try await getOrCreateCurrentHistoricalRecord(db: req.db)
+    func getOrCreateCurrentMonthlyHistoricalRecord(req: Request) async throws -> MonthlyUserUsageHistory {
+        try await getOrCreateCurrentMonthlyHistoricalRecord(db: req.db)
     }
     
-    func getOrCreateCurrentHistoricalRecord(db: any Database) async throws -> UserUsageHistory {
+    func getOrCreateCurrentMonthlyHistoricalRecord(db: any Database) async throws -> MonthlyUserUsageHistory {
         // Get Historical Log
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .gmt
         
-        var historyEntry = try await UserUsageHistory.query(on: db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
+        var historyEntry = try await MonthlyUserUsageHistory.query(on: db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
         
         if historyEntry == nil {
-            let newEntry = UserUsageHistory(requestCount: 0, subscription: currentSubscription ?? .free, month: Date().startOfMonth())
+            let newEntry = MonthlyUserUsageHistory(requestCount: 0, subscription: currentSubscription ?? .free, month: Date().startOfMonth())
             
             newEntry.$user.id = try requireID()
             
@@ -85,5 +85,25 @@ extension Sequence {
         }
 
         return values
+    }
+}
+
+extension Date {
+    func startOfMonth(calendar: Calendar = .autoupdatingCurrent) -> Date {
+        var components = calendar.dateComponents([.year, .month], from: self)
+        components.hour = 0
+        components.minute = 0
+        components.second = 0
+        components.nanosecond = 0
+        return calendar.date(from: components) ?? self
+    }
+    
+    func startOfDay(calendar: Calendar = .autoupdatingCurrent) -> Date {
+        var components = calendar.dateComponents([.year, .month, .day], from: self)
+        components.hour = 0
+        components.minute = 0
+        components.second = 0
+        components.nanosecond = 0
+        return calendar.date(from: components) ?? self
     }
 }
