@@ -48,7 +48,7 @@ final class MonthlyUserUsageHistory: Model, @unchecked Sendable {
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .gmt
         
-        var historyEntry = try await DailyUserUsageHistory.query(on: db).filter(\.$day == Date().startOfDay(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
+        var historyEntry = try await DailyUserUsageHistory.query(on: db).filter(\.$day == Date().startOfDay(calendar: calendar)).filter(\.$monthlyUsage.$id == requireID()).with(\.$monthlyUsage).first()
         
         if historyEntry == nil {
             try await $user.load(on: db)
@@ -56,7 +56,7 @@ final class MonthlyUserUsageHistory: Model, @unchecked Sendable {
             
             let newEntry = DailyUserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? .free, day: Date().startOfDay(calendar: calendar))
             
-            newEntry.$user.id = try requireID()
+            newEntry.$monthlyUsage.id = try requireID()
             
             try await newEntry.save(on: db)
             

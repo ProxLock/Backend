@@ -22,9 +22,6 @@ final class DailyUserUsageHistory: Model, @unchecked Sendable {
     
     @Parent(key: "monthly_usage_id")
     var monthlyUsage: MonthlyUserUsageHistory
-    
-    @Parent(key: "user_id")
-    var user: User
 
     init() {}
     
