@@ -25,6 +25,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(APIKey.migrations)
     app.migrations.add(DeviceCheckKey.migrations)
     app.migrations.add(MonthlyUserUsageHistory.migrations)
+    app.migrations.add(DailyUserUsageHistory.migrations)
     try await app.autoMigrate()
 
     // register routes

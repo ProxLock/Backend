@@ -7,3 +7,10 @@ struct MonthlyUserUsageHistoryDTO: Content {
     let subscription: Set<SubscriptionPlans>
     let month: Date
 }
+
+struct DailyUserUsageHistoryDTO: Content {
+    let id: UUID
+    let requestCount: Int
+    let subscription: Set<SubscriptionPlans>
+    let day: Date
+}
