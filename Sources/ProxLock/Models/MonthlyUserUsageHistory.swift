@@ -35,4 +35,35 @@ final class MonthlyUserUsageHistory: Model, @unchecked Sendable {
     func toDTO() throws -> MonthlyUserUsageHistoryDTO {
         return .init(id: try requireID(), requestCount: requestCount, subscription: subscription, month: month)
     }
+    
+    func getOrCreateCurrentDailyHistoricalRecord(req: Request) async throws -> DailyUserUsageHistory {
+        try await getOrCreateCurrentDailyHistoricalRecord(db: req.db)
+    }
+    
+    func getOrCreateCurrentDailyHistoricalRecord(db: any Database) async throws -> DailyUserUsageHistory {
+        // Get Historical Log
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.timeZone = .gmt
+        
+        var historyEntry = try await DailyUserUsageHistory.query(on: db).filter(\.$day == Date().startOfDay(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
+        
+        if historyEntry == nil {
+            try await $user.load(on: db)
+            let user = try await $user.get(on: db)
+            
+            let newEntry = DailyUserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? .free, day: Date().startOfDay(calendar: calendar))
+            
+            newEntry.$user.id = try requireID()
+            
+            try await newEntry.save(on: db)
+            
+            historyEntry = newEntry
+        }
+        
+        guard let historyEntry else {
+            throw Abort(.internalServerError)
+        }
+        
+        return historyEntry
+    }
 }

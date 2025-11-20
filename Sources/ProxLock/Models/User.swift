@@ -87,3 +87,23 @@ extension Sequence {
         return values
     }
 }
+
+extension Date {
+    func startOfMonth(calendar: Calendar = .autoupdatingCurrent) -> Date {
+        var components = calendar.dateComponents([.year, .month], from: self)
+        components.hour = 0
+        components.minute = 0
+        components.second = 0
+        components.nanosecond = 0
+        return calendar.date(from: components) ?? self
+    }
+    
+    func startOfDay(calendar: Calendar = .autoupdatingCurrent) -> Date {
+        var components = calendar.dateComponents([.year, .month, .day], from: self)
+        components.hour = 0
+        components.minute = 0
+        components.second = 0
+        components.nanosecond = 0
+        return calendar.date(from: components) ?? self
+    }
+}
