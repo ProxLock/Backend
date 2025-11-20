@@ -13,6 +13,7 @@ extension DailyUserUsageHistory: Migratable {
                 .field("day", .date, .required)
                 .field("subscription", .array(of: .string), .required)
                 .field("user_id", .uuid, .required, .references(User.schema, "id", onDelete: .cascade))
+                .field("monthly_usage_id", .uuid, .required, .references(MonthlyUserUsageHistory.schema, "id", onDelete: .cascade))
                 .create()
         }
 

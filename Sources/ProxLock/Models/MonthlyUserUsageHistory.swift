@@ -20,6 +20,9 @@ final class MonthlyUserUsageHistory: Model, @unchecked Sendable {
     @Field(key: "subscription")
     var subscription: Set<SubscriptionPlans>
     
+    @Children(for: \.$monthlyUsage)
+    var dailyUsage: [DailyUserUsageHistory]
+    
     @Parent(key: "user_id")
     var user: User
 

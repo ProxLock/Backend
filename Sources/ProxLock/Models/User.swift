@@ -21,6 +21,9 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     var usageHistory: [MonthlyUserUsageHistory]
     
     @Children(for: \.$user)
+    var dailyUsageHistory: [DailyUserUsageHistory]
+    
+    @Children(for: \.$user)
     var projects: [Project]
 
     init() { }
