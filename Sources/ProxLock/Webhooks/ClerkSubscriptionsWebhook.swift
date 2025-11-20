@@ -42,7 +42,7 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         user.currentSubscription = activeItem.plan.slug
         try await user.save(on: req.db)
         
-        let currentUsageRecord = try await user.getOrCreateCurrentHistoricalRecord(req: req)
+        let currentUsageRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         currentUsageRecord.subscription.insert(activeItem.plan.slug)
         
         try await currentUsageRecord.save(on: req.db)

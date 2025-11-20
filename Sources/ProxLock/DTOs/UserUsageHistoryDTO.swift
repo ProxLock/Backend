@@ -1,7 +1,7 @@
 import Fluent
 import Vapor
 
-struct UserUsageHistoryDTO: Content {
+struct MonthlyUserUsageHistoryDTO: Content {
     let id: UUID
     let requestCount: Int
     let subscription: Set<SubscriptionPlans>

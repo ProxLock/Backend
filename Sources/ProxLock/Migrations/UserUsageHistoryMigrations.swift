@@ -1,13 +1,13 @@
 import Fluent
 
-extension UserUsageHistory: Migratable {
+extension MonthlyUserUsageHistory: Migratable {
     static let migrations: [any Migration] = [
         CreateMigration(),
     ]
     
     struct CreateMigration: AsyncMigration {
         func prepare(on database: any Database) async throws {
-            try await database.schema(UserUsageHistory.schema)
+            try await database.schema(MonthlyUserUsageHistory.schema)
                 .id()
                 .field("request_count", .int, .required)
                 .field("month", .date, .required)
@@ -17,7 +17,7 @@ extension UserUsageHistory: Migratable {
         }
 
         func revert(on database: any Database) async throws {
-            try await database.schema(UserUsageHistory.schema).delete()
+            try await database.schema(MonthlyUserUsageHistory.schema).delete()
         }
     }
 }

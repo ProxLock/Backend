@@ -108,7 +108,7 @@ struct RequestProxyController: RouteCollection {
         try await project.$user.load(on: req.db)
         let user = try await project.$user.get(on: req.db)
         
-        let currentRecord = try await user.getOrCreateCurrentHistoricalRecord(req: req)
+        let currentRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         
         return currentRecord.requestCount < (user.currentSubscription ?? .free).requestLimit
     }
@@ -126,7 +126,7 @@ struct RequestProxyController: RouteCollection {
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .gmt
         
-        let historyEntry = try await user.getOrCreateCurrentHistoricalRecord(req: req)
+        let historyEntry = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         
         // Update Entry
         historyEntry.requestCount += 1
