@@ -123,9 +123,6 @@ struct RequestProxyController: RouteCollection {
         let user = try await project.$user.get(on: req.db)
         
         // Get Historical Log
-        var calendar = Calendar.autoupdatingCurrent
-        calendar.timeZone = .gmt
-        
         let monthlyEntry = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         
         // Update Entry

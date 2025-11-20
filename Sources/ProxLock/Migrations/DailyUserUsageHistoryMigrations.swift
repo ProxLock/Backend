@@ -17,7 +17,7 @@ extension DailyUserUsageHistory: Migratable {
         }
 
         func revert(on database: any Database) async throws {
-            try await database.schema(MonthlyUserUsageHistory.schema).delete()
+            try await database.schema(DailyUserUsageHistory.schema).delete()
         }
     }
 }
