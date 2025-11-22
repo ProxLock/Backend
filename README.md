@@ -87,12 +87,7 @@ Before you begin, ensure you have the following installed:
    docker compose up
    ```
 
-3. **Run migrations** (if needed separately)
-   ```bash
-   docker compose run migrate
-   ```
-
-4. **Access the application**
+3. **Access the application**
    
    The API will be available at `http://localhost:8080`
 
