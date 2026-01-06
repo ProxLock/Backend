@@ -13,7 +13,7 @@ jobs:
     build-and-deploy:
         environment:
           name: Production
-          url: https://api.proxlock.com
+          url: https://api.proxlock.dev
         runs-on: ubuntu-latest
         steps:
         # checkout the repo
