@@ -1,5 +1,5 @@
 //
-//  DeviceValidationMiddlewear.swift
+//  DeviceValidationMiddleware.swift
 //  APIProxy
 //
 //  Created by Morris Richman on 10/10/25.
@@ -11,7 +11,7 @@ import VaporDeviceCheck
 import Fluent
 import JWTKit
 
-struct DeviceValidationMiddlewear: AsyncMiddleware {
+struct DeviceValidationMiddleware: AsyncMiddleware {
     func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         guard let modeString = request.headers.first(name: DeviceValidationHeaderKeys.validationMode), let mode = DeviceValidationMode(rawValue: modeString) else {
             throw Abort(.unauthorized, reason: "Failed Device Validation: Mode not detected")
@@ -46,14 +46,14 @@ struct DeviceValidationMiddlewear: AsyncMiddleware {
         // Add ECDSA key with JWKIdentifier
         await request.application.jwt.keys.add(ecdsa: privateKey, kid: kid)
         
-        let deviceCheckMiddlewear = DeviceCheck(
+        let deviceCheckMiddleware = DeviceCheck(
             jwkKid: kid,
             jwkIss: key.teamID,
             excludes: [["health"]],
             bypassTokens: [key.bypassToken]
         )
         
-        let deviceCheckEventLoopFuture = deviceCheckMiddlewear.respond(to: request, chainingTo: next)
+        let deviceCheckEventLoopFuture = deviceCheckMiddleware.respond(to: request, chainingTo: next)
         
         let response = try await withCheckedThrowingContinuation { continuation in
             deviceCheckEventLoopFuture.whenComplete { result in

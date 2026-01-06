@@ -14,4 +14,4 @@ private let corsConfiguration = CORSMiddleware.Configuration(
     allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin],
     allowCredentials: true
 )
-let corsMiddlewear = CORSMiddleware(configuration: corsConfiguration)
+let corsMiddleware = CORSMiddleware(configuration: corsConfiguration)
