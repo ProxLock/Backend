@@ -1,4 +1,8 @@
-name: Push ProxLock to Azure
+name: Deploy ProxLock to Azure
+
+concurrency:
+  group: Production
+  cancel-in-progress: true
 
 on:
   push:
@@ -7,6 +11,9 @@ on:
 
 jobs:
     build-and-deploy:
+        environment:
+          name: Production
+          url: https://api.proxlock.com
         runs-on: ubuntu-latest
         steps:
         # checkout the repo
