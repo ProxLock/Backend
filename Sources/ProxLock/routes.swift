@@ -2,8 +2,8 @@ import Fluent
 import Vapor
 
 func routes(_ app: Application) throws {
-app.get { req async in
-        "It works!"
+    app.get { req async in
+        req.redirect(to: "https://proxlock.dev", redirectType: .permanent)
     }
 
     app.get("version") { req async -> String in
