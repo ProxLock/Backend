@@ -9,7 +9,7 @@ public func configure(_ app: Application) async throws {
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
     
     // cors middleware should come before default error middleware using `at: .beginning`
-    app.middleware.use(corsMiddlewear, at: .beginning)
+    app.middleware.use(corsMiddleware, at: .beginning)
     
     app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
         hostname: Environment.get("DATABASE_HOST") ?? "localhost",

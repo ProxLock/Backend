@@ -137,7 +137,7 @@ backend/
 │   └── ProxLock/
 │       ├── Controllers/      # Request handlers
 │       ├── DTOs/             # Data transfer objects
-│       ├── Middlewear/       # Custom middleware
+│       ├── Middleware/       # Custom middleware
 │       ├── Migrations/       # Database migrations
 │       ├── Models/           # Database models
 │       ├── Webhooks/         # Webhook handlers

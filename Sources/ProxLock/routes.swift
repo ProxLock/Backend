@@ -19,7 +19,7 @@ app.get { req async in
 }
 
 private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
-    try v1.grouped(DeviceValidationMiddlewear()).register(collection: RequestProxyController())
+    try v1.grouped(DeviceValidationMiddleware()).register(collection: RequestProxyController())
     
     let v1_authenticatedRouters = v1.grouped(ClerkAuthenticator())
     
