@@ -83,7 +83,7 @@ struct RequestProxyController: RouteCollection {
             break
         }
         
-        guard let userPartialKeyRange = partialKey.value.range(of: #"(?<=%ProxLock_PARTIAL_KEY:)[^%]+"#, options: .regularExpression) else {
+        guard let userPartialKeyRange = partialKey.value.range(of: #"(?<=%ProxLock_PARTIAL_KEY:).+(?=.$)"#, options: .regularExpression) else {
             throw Abort(.badRequest, reason: "Partial Key was not found")
         }
         let userPartialKey = String(partialKey.value[userPartialKeyRange])
