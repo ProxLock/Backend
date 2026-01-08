@@ -3,7 +3,7 @@ import Vapor
 
 func routes(_ app: Application) throws {
     app.get { req async in
-        req.redirect(to: "https://proxlock.dev", redirectType: .permanent)
+        req.redirect(to: "https://proxlock.dev")
     }
 
     app.get("version") { req async -> String in
