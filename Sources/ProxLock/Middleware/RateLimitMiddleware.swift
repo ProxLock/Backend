@@ -26,8 +26,8 @@ actor RateLimitManager: Sendable {
             return
         }
         
-        // Ensure rate limit is reset every 5 minutes
-        guard trackedLimit.lastCreation < Date.now && Date.now < trackedLimit.lastCreation.addingTimeInterval(60*5) else {
+        // Ensure rate limit is reset every 1 minute
+        guard trackedLimit.lastCreation < Date.now && Date.now < trackedLimit.lastCreation.addingTimeInterval(60) else {
             // Return if no limit
             guard let maxLimit = key.rateLimit else {
                 return
