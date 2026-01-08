@@ -20,7 +20,8 @@ struct RequestProxyController: RouteCollection {
     /// - ProxLock_ASSOCIATION_ID: The API key ID for authentication
     /// - ProxLock_HTTP_METHOD: The HTTP method for the target request
     /// - ProxLock_DESTINATION: The destination URL for the proxied request
-    /// 
+    /// - `ProxLock_VALIDATION_MODE`: The mode for validating the request (device-check, web)
+    ///
     /// ## Partial Key Usage
     /// Include your partial key in any header by wrapping it like: `%ProxLock_PARTIAL_KEY:<your_partial_key>%`
     /// This will be replaced with the complete key before forwarding to the target service.
