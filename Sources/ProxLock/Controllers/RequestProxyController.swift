@@ -60,7 +60,7 @@ struct RequestProxyController: RouteCollection {
         
         // Validate user is under request limit
         guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey) else {
-            throw Abort(.forbidden, reason: "Beyond request limit")
+            throw Abort(.paymentRequired, reason: "Beyond request limit")
         }
         
         let checkingUrls = (dbKey.whitelistedUrls ?? []).filter { getHostFromString($0) == destinationUrl.host }
