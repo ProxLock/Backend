@@ -95,6 +95,11 @@ struct DeviceCheckKeyController: RouteCollection {
         // Validate key is correct form
         let _ = try ES256PrivateKey(pem: Data(privateKey.utf8))
         
+        // Get required info from Play Integrity
+        try await project.$playIntegrityConfig.load(on: req.db)
+        
+        let playIntegrityConfig = try? await project.$playIntegrityConfig.get(on: req.db)
+        
         // Update Existing Key or Create New ONe
         let key: DeviceCheckKey
         
@@ -102,9 +107,11 @@ struct DeviceCheckKeyController: RouteCollection {
             foundKey.secretKey = privateKey
             foundKey.keyID = dto.keyID
             foundKey.teamID = dto.teamID
+            foundKey.bypassToken = playIntegrityConfig?.bypassToken ?? UUID().uuidString
+            
             key = foundKey
         } else {
-            key = DeviceCheckKey(secretKey: privateKey, keyID: dto.keyID, teamID: dto.teamID)
+            key = DeviceCheckKey(secretKey: privateKey, keyID: dto.keyID, teamID: dto.teamID, bypassToken: playIntegrityConfig?.bypassToken ?? UUID().uuidString)
         }
         
         // Assign to user and save
@@ -165,6 +172,9 @@ struct DeviceCheckKeyController: RouteCollection {
         }
         
         try await project.$deviceCheckKey.load(on: req.db)
+        try await project.$playIntegrityConfig.load(on: req.db)
+        
+        let playIntegrityConfig = try? await project.$playIntegrityConfig.get(on: req.db)
         
         let key: DeviceCheckKey
         
@@ -172,9 +182,11 @@ struct DeviceCheckKeyController: RouteCollection {
             foundKey.secretKey = existingKey.secretKey
             foundKey.keyID = existingKey.keyID
             foundKey.teamID = existingKey.teamID
+            foundKey.bypassToken = playIntegrityConfig?.bypassToken ?? UUID().uuidString
+            
             key = foundKey
         } else {
-            key = DeviceCheckKey(secretKey: existingKey.secretKey, keyID: existingKey.keyID, teamID: existingKey.teamID)
+            key = DeviceCheckKey(secretKey: existingKey.secretKey, keyID: existingKey.keyID, teamID: existingKey.teamID, bypassToken: playIntegrityConfig?.bypassToken ?? UUID().uuidString)
         }
         
         // Assign to user and save
