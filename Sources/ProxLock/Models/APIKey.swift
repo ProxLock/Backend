@@ -20,7 +20,7 @@ final class APIKey: Model, @unchecked Sendable {
     var partialKey: String
 
     @Field(key: "rate_limit")
-    var rateLimit: Int?
+    private(set) var rateLimit: Int?
 
     @Field(key: "allows_web")
     var allowsWeb: Bool
@@ -38,7 +38,13 @@ final class APIKey: Model, @unchecked Sendable {
         self.name = name
         self.userDescription = description
         self.partialKey = partialKey
-        self.rateLimit = rateLimit
+        
+        if (rateLimit ?? -1) < 0 {
+            self.rateLimit = nil
+        } else {
+            self.rateLimit = rateLimit
+        }
+        
         self.allowsWeb = allowsWeb
         self.whitelistedUrls = whitelistedUrls
     }
@@ -52,5 +58,13 @@ final class APIKey: Model, @unchecked Sendable {
             allowsWeb: allowsWeb,
             whitelistedUrls: whitelistedUrls ?? []
         )
+    }
+    
+    func setRateLimit(_ rateLimit: Int) {
+        if rateLimit < 0 {
+            self.rateLimit = nil
+        } else {
+            self.rateLimit = rateLimit
+        }
     }
 }

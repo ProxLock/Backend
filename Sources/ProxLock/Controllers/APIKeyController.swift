@@ -148,7 +148,7 @@ struct APIKeyController: RouteCollection {
         }
         
         if let rateLimit = keyDTO.rateLimit {
-            key.rateLimit = rateLimit
+            key.setRateLimit(rateLimit)
         }
         
         if let allowsWeb = keyDTO.allowsWeb {
