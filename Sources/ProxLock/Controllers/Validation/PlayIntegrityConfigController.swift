@@ -271,7 +271,9 @@ struct PlayIntegrityConfigController: RouteCollection {
 
 extension GoogleServiceAccountCredentials {
     func asString() throws -> String {
-        guard let string = String(data: try JSONEncoder().encode(self), encoding: .utf8) else {
+        let jsonEncoder = JSONEncoder()
+        jsonEncoder.keyEncodingStrategy = .convertToSnakeCase
+        guard let string = String(data: try jsonEncoder.encode(self), encoding: .utf8) else {
             throw Abort(
                 .internalServerError, reason: "Unable to serialize Google Cloud credentials")
         }
