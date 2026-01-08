@@ -1,5 +1,5 @@
-import Fluent
 import Core
+import Fluent
 import JWTKit
 import Vapor
 
@@ -28,24 +28,24 @@ struct PlayIntegrityConfigController: RouteCollection {
     ///   - req: The HTTP request containing the user ID parameter
     /// - Returns: Array of ``PlayIntegrityConfigSendingDTO`` objects containing PlayIntegrity configuration information
     @Sendable
-    func index(req: Request) async throws -> [DeviceCheckKeySendingDTO] {
+    func index(req: Request) async throws -> [PlayIntegrityConfigSendingDTO] {
         let user = try req.auth.require(User.self)
 
         try await user.$projects.load(on: req.db)
         let projects = try await user.$projects.get(on: req.db)
 
-        var keys: [DeviceCheckKey] = []
+        var configs: [PlayIntegrityConfig] = []
 
         for project in projects {
-            try await project.$deviceCheckKey.load(on: req.db)
+            try await project.$playIntegrityConfig.load(on: req.db)
 
-            guard let key = try await project.$deviceCheckKey.get(on: req.db),
-                !keys.contains(where: { $0.keyID == key.keyID && $0.teamID == key.teamID })
+            guard let config = try await project.$playIntegrityConfig.get(on: req.db),
+                !configs.contains(where: { $0.gcloudJson == config.gcloudJson })
             else { continue }
-            keys.append(key)
+            configs.append(config)
         }
 
-        return keys.map { $0.toDTO() }
+        return configs.map { try? $0.toDTO() }.compactMap({ $0 })
     }
 
     /// POST /me/projects/:projectID/play-integrity
@@ -85,21 +85,20 @@ struct PlayIntegrityConfigController: RouteCollection {
         return try config.toDTO()
     }
 
-    /// PUT /me/projects/:projectID/device-check
+    /// PUT /me/projects/:projectID/play-integrity
     ///
-    /// Creates or updates a DeviceCheck key for a specific project by copying an existing key from the user.
+    /// Links an existing PlayIntegrity configuration to a different project.
     ///
     /// ## Required Headers
     /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
     ///
     /// ## Request Body
-    /// Expects a ``DeviceCheckKeyRecievingDTO`` object containing:
-    /// - teamID: The Apple Developer team identifier (required)
-    /// - keyID: The Apple Developer key identifier (required)
+    /// Expects a ``PlayIntegrityConfigLinkRecievingDTO`` object containing:
+    /// - projectID: The project ID to copy the PlayIntegrity configuration from (required)
     ///
     /// - Parameters:
-    ///   - req: The HTTP request containing the user ID parameter and DeviceCheck key data in the request body
-    /// - Returns: ``DeviceCheckKeySendingDTO`` object containing the DeviceCheck key information
+    ///   - req: The HTTP request containing the project ID parameter and link data in the request body
+    /// - Returns: ``PlayIntegrityConfigSendingDTO`` object containing the PlayIntegrity configuration information
     @Sendable
     func link(req: Request) async throws -> PlayIntegrityConfigSendingDTO {
         // Get the key
@@ -139,19 +138,19 @@ struct PlayIntegrityConfigController: RouteCollection {
         return try config.toDTO()
     }
 
-    /// GET /me/projects/:projectID/device-check
+    /// GET /me/projects/:projectID/play-integrity
     ///
-    /// Retrieves a specific DeviceCheck key by team ID for a project.
+    /// Retrieves the PlayIntegrity configuration for a specific project.
     ///
     /// ## Required Headers
     /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
     ///
     /// ## Path Parameters
-    /// - teamID: The unique identifier of the Apple Developer team
+    /// - projectID: The unique identifier of the project
     ///
     /// - Parameters:
-    ///   - req: The HTTP request containing the user ID and team ID parameters
-    /// - Returns: ``DeviceCheckKeySendingDTO`` object containing the DeviceCheck key information
+    ///   - req: The HTTP request containing the project ID parameter
+    /// - Returns: ``PlayIntegrityConfigSendingDTO`` object containing the PlayIntegrity configuration information
     @Sendable
     func get(req: Request) async throws -> PlayIntegrityConfigSendingDTO {
         let user = try req.auth.require(User.self)
@@ -176,18 +175,18 @@ struct PlayIntegrityConfigController: RouteCollection {
         return try config.toDTO()
     }
 
-    /// DELETE /me/projects/:projectID/device-check
+    /// DELETE /me/projects/:projectID/play-integrity
     ///
-    /// Deletes a specific DeviceCheck key by team ID for a project.
+    /// Deletes the PlayIntegrity configuration for a specific project.
     ///
     /// ## Path Parameters
-    /// - teamID: The unique identifier of the Apple Developer team
+    /// - projectID: The unique identifier of the project
     ///
     /// ## Required Headers
     /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
     ///
     /// - Parameters:
-    ///   - req: The HTTP request containing the user ID and team ID parameters
+    ///   - req: The HTTP request containing the project ID parameter
     /// - Returns: HTTP status code indicating the result of the deletion operation
     @Sendable
     func delete(req: Request) async throws -> HTTPStatus {
@@ -216,24 +215,41 @@ struct PlayIntegrityConfigController: RouteCollection {
 
     // MARK: - Private Functions
 
-    /// Sets the ``PlayIntegrityConfig`` for a project using the Google Cloud service account's json
+    /// Sets the ``PlayIntegrityConfig`` for a project using the Google Cloud service account's JSON string.
+    ///
+    /// - Parameters:
+    ///   - gcloudJson: The Google Cloud service account credentials as a JSON string
+    ///   - project: The project to configure PlayIntegrity for
+    ///   - req: The HTTP request for database access
+    /// - Returns: The created or updated ``PlayIntegrityConfig``
     func setConfig(
         _ gcloudJson: String, on project: Project, from req: Request
     ) async throws -> PlayIntegrityConfig {
         guard let data = gcloudJson.data(using: .utf8) else {
-            throw Abort(.internalServerError, reason: "Failed to serialize Google Cloud service account JSON")
+            throw Abort(
+                .internalServerError,
+                reason: "Failed to serialize Google Cloud service account JSON")
         }
         let json = try JSONDecoder().decode(GoogleServiceAccountCredentials.self, from: data)
         return try await self.setConfig(json, on: project, from: req)
     }
 
-    /// Sets the ``PlayIntegrityConfig`` for a project using the Google Cloud service account's json
+    /// Sets the ``PlayIntegrityConfig`` for a project using the Google Cloud service account credentials.
+    ///
+    /// If an existing configuration is found, it updates the credentials. Otherwise, it creates a new configuration.
+    /// The bypass token is shared with the DeviceCheck key if one exists, otherwise a new UUID is generated.
+    ///
+    /// - Parameters:
+    ///   - gcloudJson: The Google Cloud service account credentials object
+    ///   - project: The project to configure PlayIntegrity for
+    ///   - req: The HTTP request for database access
+    /// - Returns: The created or updated ``PlayIntegrityConfig``
     func setConfig(
         _ gcloudJson: GoogleServiceAccountCredentials, on project: Project, from req: Request
     ) async throws -> PlayIntegrityConfig {
         try await project.$deviceCheckKey.load(on: req.db)
         try await project.$playIntegrityConfig.load(on: req.db)
-        
+
         let deviceCheckKey = try? await project.$deviceCheckKey.get(on: req.db)
 
         // Update Existing Key or Create New ONe
@@ -260,7 +276,8 @@ struct PlayIntegrityConfigController: RouteCollection {
 extension GoogleServiceAccountCredentials {
     func asString() throws -> String {
         guard let string = String(data: try JSONEncoder().encode(self), encoding: .utf8) else {
-            throw Abort(.internalServerError, reason: "Unable to serialize Google Cloud credentials")
+            throw Abort(
+                .internalServerError, reason: "Unable to serialize Google Cloud credentials")
         }
         return string
     }
