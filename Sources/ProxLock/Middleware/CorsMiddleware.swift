@@ -9,9 +9,17 @@ import Foundation
 import Vapor
 
 private let corsConfiguration = CORSMiddleware.Configuration(
-    allowedOrigin: .all,
+    allowedOrigin: .any(["http://127.0.0.1:5173", "http://localhost:5173", "https://proxlock.dev", "https://app.proxlock.dev"]),
     allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
     allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin],
     allowCredentials: true
 )
 let corsMiddleware = CORSMiddleware(configuration: corsConfiguration)
+
+private let wildcardCorsConfiguration = CORSMiddleware.Configuration(
+    allowedOrigin: .all,
+    allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
+    allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin],
+    allowCredentials: false
+)
+let wildcardCorsMiddleware = CORSMiddleware(configuration: wildcardCorsConfiguration)
