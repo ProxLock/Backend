@@ -79,7 +79,9 @@ struct PlayIntegrityConfigController: RouteCollection {
         try await project.$deviceCheckKey.load(on: req.db)
         try await project.$playIntegrityConfig.load(on: req.db)
 
-        let gcloudJson = try req.content.decode(GoogleServiceAccountCredentials.self)
+        let jsonDecoder = JSONDecoder()
+        jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
+        let gcloudJson = try req.content.decode(GoogleServiceAccountCredentials.self, using: jsonDecoder)
 
         let config = try await setConfig(gcloudJson, on: project, from: req)
         return try config.toDTO()
@@ -225,13 +227,7 @@ struct PlayIntegrityConfigController: RouteCollection {
     func setConfig(
         _ gcloudJson: String, on project: Project, from req: Request
     ) async throws -> PlayIntegrityConfig {
-        guard let data = gcloudJson.data(using: .utf8) else {
-            throw Abort(
-                .internalServerError,
-                reason: "Failed to serialize Google Cloud service account JSON")
-        }
-        let json = try JSONDecoder().decode(GoogleServiceAccountCredentials.self, from: data)
-        return try await self.setConfig(json, on: project, from: req)
+        return try await self.setConfig(GoogleServiceAccountCredentials(fromJsonString: gcloudJson), on: project, from: req)
     }
 
     /// Sets the ``PlayIntegrityConfig`` for a project using the Google Cloud service account credentials.

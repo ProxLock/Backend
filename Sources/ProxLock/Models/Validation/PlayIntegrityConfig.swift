@@ -30,10 +30,7 @@ final class PlayIntegrityConfig: Model, @unchecked Sendable {
     }
     
     func toDTO() throws -> PlayIntegrityConfigSendingDTO {
-        guard let jsonData = gcloudJson.data(using: .utf8) else {
-            throw Abort(.internalServerError, reason: "Failed to serialize Google Cloud JSON")
-        }
-        let json = try JSONDecoder().decode(GoogleServiceAccountCredentials.self, from: jsonData)
+        let json = try GoogleServiceAccountCredentials(fromJsonString: gcloudJson)
         
         return .init(bypassToken: bypassToken, clientEmail: json.clientEmail)
     }
