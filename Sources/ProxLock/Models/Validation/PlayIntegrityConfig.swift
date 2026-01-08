@@ -1,4 +1,6 @@
 import Fluent
+import Vapor
+import Core
 import struct Foundation.UUID
 
 /// Property wrappers interact poorly with `Sendable` checking, causing a warning for the `@ID` property
@@ -27,7 +29,12 @@ final class PlayIntegrityConfig: Model, @unchecked Sendable {
         self.bypassToken = bypassToken
     }
     
-    func toDTO() -> PlayIntegrityConfigSendingDTO {
-        .init(bypassToken: bypassToken)
+    func toDTO() throws -> PlayIntegrityConfigSendingDTO {
+        guard let jsonData = gcloudJson.data(using: .utf8) else {
+            throw Abort(.internalServerError, reason: "Failed to serialize Google Cloud JSON")
+        }
+        let json = try JSONDecoder().decode(GoogleServiceAccountCredentials.self, from: jsonData)
+        
+        return .init(bypassToken: bypassToken, clientEmail: json.clientEmail)
     }
 }

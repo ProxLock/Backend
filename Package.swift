@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "ProxLock",
     platforms: [
-       .macOS(.v13)
+        .macOS(.v13)
     ],
     dependencies: [
         // 💧 A server-side Swift web framework.
@@ -18,6 +18,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/jwt.git", from: "5.0.0"),
         .package(url: "https://github.com/mcrich23/vapordevicecheck.git", from: "1.1.3"),
         .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),
+        .package(url: "https://github.com/0xRohit/google-cloud-kit.git", branch: "main"),
     ],
     targets: [
         .executableTarget(
@@ -31,20 +32,23 @@ let package = Package(
                 .product(name: "JWT", package: "jwt"),
                 .product(name: "VaporDeviceCheck", package: "VaporDeviceCheck"),
                 .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "GoogleCloudKit", package: "google-cloud-kit"),
             ],
             swiftSettings: swiftSettings
-        ),
-//        .testTarget(
-//            name: "ProxLockTests",
-//            dependencies: [
-//                .target(name: "ProxLock"),
-//                .product(name: "VaporTesting", package: "vapor"),
-//            ],
-//            swiftSettings: swiftSettings
-//        )
+        )
+        //        .testTarget(
+        //            name: "ProxLockTests",
+        //            dependencies: [
+        //                .target(name: "ProxLock"),
+        //                .product(name: "VaporTesting", package: "vapor"),
+        //            ],
+        //            swiftSettings: swiftSettings
+        //        )
     ]
 )
 
-var swiftSettings: [SwiftSetting] { [
-    .enableUpcomingFeature("ExistentialAny"),
-] }
+var swiftSettings: [SwiftSetting] {
+    [
+        .enableUpcomingFeature("ExistentialAny")
+    ]
+}

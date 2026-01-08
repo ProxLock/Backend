@@ -1,5 +1,5 @@
 {
-  "originHash" : "e25b43e960dddf5d22a550361e6c8529b232b500505a9ebcdf14f08c0b4f8485",
+  "originHash" : "f9fd620af0a868bba5a811f49e4f3f17b20f87d450e16befa02d4767807735f1",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -53,6 +53,15 @@
       "state" : {
         "revision" : "cd47a7042a529735e401bdfaa070823d151f7f94",
         "version" : "2.11.0"
+      }
+    },
+    {
+      "identity" : "google-cloud-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/0xRohit/google-cloud-kit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "077622c523a36e14de44211805a638689e602e97"
       }
     },
     {
