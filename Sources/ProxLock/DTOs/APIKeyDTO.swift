@@ -6,6 +6,7 @@ struct APIKeyRecievingDTO: Content {
     let apiKey: String?
     let description: String?
     let rateLimit: Int?
+    let allowsWeb: Bool?
     let whitelistedUrls: [String]?
 }
 
@@ -15,5 +16,6 @@ struct APIKeySendingDTO: Content {
     var userPartialKey: String?
     let description: String
     let rateLimit: Int?
+    let allowsWeb: Bool
     let whitelistedUrls: [String]
 }

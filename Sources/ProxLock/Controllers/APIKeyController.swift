@@ -81,7 +81,7 @@ struct APIKeyController: RouteCollection {
         
         let (userKey, dbKey) = try KeySplitter.split(key: apiKey)
         
-        let key = APIKey(name: name, description: keyDTO.description ?? "", partialKey: dbKey, rateLimit: keyDTO.rateLimit, whitelistedUrls: keyDTO.whitelistedUrls ?? [])
+        let key = APIKey(name: name, description: keyDTO.description ?? "", partialKey: dbKey, rateLimit: keyDTO.rateLimit, allowsWeb: keyDTO.allowsWeb ?? false, whitelistedUrls: keyDTO.whitelistedUrls ?? [])
         
         let user = try req.auth.require(User.self)
         
@@ -148,7 +148,11 @@ struct APIKeyController: RouteCollection {
         }
         
         if let rateLimit = keyDTO.rateLimit {
-            key.rateLimit = rateLimit
+            key.setRateLimit(rateLimit)
+        }
+        
+        if let allowsWeb = keyDTO.allowsWeb {
+            key.allowsWeb = allowsWeb
         }
         
         try await key.save(on: req.db)
