@@ -18,8 +18,10 @@ func routes(_ app: Application) throws {
     try webhooks.register(collection: ClerkSubscriptionsWebhook())
 }
 
+private let rateLimitManager = RateLimitManager()
+
 private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
-    try v1.grouped(DeviceValidationMiddleware()).register(collection: RequestProxyController())
+    try v1.grouped(RateLimitMiddleware(manager: rateLimitManager)).grouped(DeviceValidationMiddleware()).register(collection: RequestProxyController())
     
     let v1_authenticatedRouters = v1.grouped(ClerkAuthenticator())
     
