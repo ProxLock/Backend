@@ -8,4 +8,5 @@ struct PlayIntegrityConfigLinkRecievingDTO: Content {
 struct PlayIntegrityConfigSendingDTO: Content {
     let bypassToken: String
     let clientEmail: String
+    let projectID: UUID
 }

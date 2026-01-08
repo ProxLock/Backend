@@ -32,6 +32,6 @@ final class PlayIntegrityConfig: Model, @unchecked Sendable {
     func toDTO() throws -> PlayIntegrityConfigSendingDTO {
         let json = try GoogleServiceAccountCredentials(fromJsonString: gcloudJson)
         
-        return .init(bypassToken: bypassToken, clientEmail: json.clientEmail)
+        return .init(bypassToken: bypassToken, clientEmail: json.clientEmail, projectID: $project.id)
     }
 }
