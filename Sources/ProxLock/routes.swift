@@ -27,4 +27,5 @@ private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
     try v1_authenticatedRouters.register(collection: APIKeyController())
     try v1_authenticatedRouters.register(collection: ProjectController())
     try v1_authenticatedRouters.register(collection: DeviceCheckKeyController())
+    try v1_authenticatedRouters.register(collection: PlayIntegrityConfigController())
 }
