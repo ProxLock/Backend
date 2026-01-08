@@ -20,7 +20,26 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
         switch mode {
         case .deviceCheck:
             return try await handleDeviceCheck(to: request, chainingTo: next)
+        case .web:
+            return try await handleWeb(to: request, chainingTo: next)
         }
+    }
+    
+    private func handleWeb(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
+        guard let associationId = request.headers.first(name: ProxyHeaderKeys.associationId) else {
+            throw Abort(.unauthorized, reason: "Failed Device Validation: Association ID not detected")
+        }
+        
+        // Get Project so we can fetch the user
+        guard let dbKey = try await APIKey.find(UUID(uuidString: associationId), on: request.db) else {
+            throw Abort(.unauthorized, reason: "Key was not found")
+        }
+        
+        guard dbKey.allowsWeb else {
+            throw Abort(.unauthorized, reason: "Web requests are not enabled for this key")
+        }
+        
+        return try await next.respond(to: request)
     }
     
     private func handleDeviceCheck(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
@@ -77,4 +96,5 @@ struct DeviceValidationHeaderKeys {
 
 enum DeviceValidationMode: String, Codable, CaseIterable {
     case deviceCheck = "device-check"
+    case web = "web"
 }

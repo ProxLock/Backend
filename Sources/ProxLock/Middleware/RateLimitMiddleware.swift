@@ -37,7 +37,7 @@ actor RateLimitManager: Sendable {
             return
         }
         
-        guard trackedLimit.maxLimit < trackedLimit.count else {
+        guard trackedLimit.maxLimit > trackedLimit.count else {
             throw Abort(.tooManyRequests)
         }
         

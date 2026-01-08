@@ -21,6 +21,9 @@ final class APIKey: Model, @unchecked Sendable {
 
     @Field(key: "rate_limit")
     var rateLimit: Int?
+
+    @Field(key: "allows_web")
+    var allowsWeb: Bool
     
     @Field(key: "whitelisted_urls")
     var whitelistedUrls: [String]?
@@ -30,12 +33,13 @@ final class APIKey: Model, @unchecked Sendable {
 
     init() { }
 
-    init(id: UUID? = nil, name: String, description: String, partialKey: String, rateLimit: Int? = nil, whitelistedUrls: [String]) {
+    init(id: UUID? = nil, name: String, description: String, partialKey: String, rateLimit: Int? = nil, allowsWeb: Bool, whitelistedUrls: [String]) {
         self.id = id
         self.name = name
         self.userDescription = description
         self.partialKey = partialKey
         self.rateLimit = rateLimit
+        self.allowsWeb = allowsWeb
         self.whitelistedUrls = whitelistedUrls
     }
     
@@ -45,6 +49,7 @@ final class APIKey: Model, @unchecked Sendable {
             name: self.name,
             description: userDescription,
             rateLimit: rateLimit,
+            allowsWeb: allowsWeb,
             whitelistedUrls: whitelistedUrls ?? []
         )
     }
