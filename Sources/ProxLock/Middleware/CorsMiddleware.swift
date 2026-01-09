@@ -15,3 +15,11 @@ private let corsConfiguration = CORSMiddleware.Configuration(
     allowCredentials: true
 )
 let corsMiddleware = CORSMiddleware(configuration: corsConfiguration)
+
+private let wildcardCorsConfiguration = CORSMiddleware.Configuration(
+    allowedOrigin: .all,
+    allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
+    allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin],
+    allowCredentials: false
+)
+let wildcardCorsMiddleware = CORSMiddleware(configuration: wildcardCorsConfiguration)

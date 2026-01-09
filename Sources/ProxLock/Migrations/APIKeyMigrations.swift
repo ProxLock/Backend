@@ -4,7 +4,9 @@ extension APIKey: Migratable {
     static let migrations: [any Migration] = [
         CreateMigration(),
         AddDescriptionMigration(),
-        AddWhitelistedUrls()
+        AddWhitelistedUrls(),
+        AddRateLimit(),
+        AddAllowsWeb(),
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -46,6 +48,34 @@ extension APIKey: Migratable {
         func revert(on database: any Database) async throws {
             try await database.schema(APIKey.schema)
                 .deleteField("whitelisted_urls")
+                .update()
+        }
+    }
+    
+    struct AddRateLimit: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .field("rate_limit", .int)
+                .update()
+        }
+
+        func revert(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .deleteField("rate_limit")
+                .update()
+        }
+    }
+    
+    struct AddAllowsWeb: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .field("allows_web", .bool, .required, .sql(.default(false)))
+                .update()
+        }
+
+        func revert(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .deleteField("allows_web")
                 .update()
         }
     }
