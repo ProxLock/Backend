@@ -90,7 +90,7 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
         let postMessage = PlayIntegrityPayload(integrityToken: googlePlayKey)
         let postData = try JSONEncoder().encode(postMessage)
         
-        let response: PlayIntegrityResponse = try await withCheckedThrowingContinuation { continuation in
+        let response = try await withCheckedThrowingContinuation { continuation in
             let sendRequest: EventLoopFuture<PlayIntegrityResponse> = client.request.send(method: .POST, path: "https://playintegrity.googleapis.com/v1/\(integrityConfig.packageName):decodeIntegrityToken", body: .data(postData), eventLoop: request.eventLoop)
             sendRequest.whenComplete { result in
                 switch result {
@@ -100,9 +100,9 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
                     continuation.resume(throwing: failure)
                 }
             }
-        }
+        }.tokenPayloadExternal
         
-        guard response.tokenPayloadExternal.deviceIntegrity.deviceRecognitionVerdict?.contains(.meetsDeviceIntegrity) == true else {
+        guard response.deviceIntegrity.deviceRecognitionVerdict?.contains(.meetsDeviceIntegrity) == true && response.appIntegrity.appRecognitionVerdict == .playRecognized else {
             throw Abort(.forbidden, reason: "Invalid Play Integrity")
         }
         
