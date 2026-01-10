@@ -19,11 +19,16 @@ public func configure(_ app: Application) async throws {
         database: Environment.get("DATABASE_NAME") ?? "vapor_database",
         tls: .prefer(try .init(configuration: .clientDefault)))
     ), as: .psql)
+    
+    let jsonDecoder = JSONDecoder()
+    jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
+    ContentConfiguration.global.use(decoder: jsonDecoder, for: .json)
 
     app.migrations.add(User.migrations)
     app.migrations.add(Project.migrations)
     app.migrations.add(APIKey.migrations)
     app.migrations.add(DeviceCheckKey.migrations)
+    app.migrations.add(PlayIntegrityConfig.migrations)
     app.migrations.add(MonthlyUserUsageHistory.migrations)
     app.migrations.add(DailyUserUsageHistory.migrations)
     try await app.autoMigrate()

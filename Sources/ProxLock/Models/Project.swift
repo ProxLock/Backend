@@ -25,6 +25,9 @@ final class Project: Model, @unchecked Sendable {
     @OptionalChild(for: \.$project)
     var deviceCheckKey: DeviceCheckKey?
     
+    @OptionalChild(for: \.$project)
+    var playIntegrityConfig: PlayIntegrityConfig?
+    
     init() { }
 
     init(id: UUID? = nil, name: String, description: String) {
