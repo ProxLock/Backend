@@ -174,9 +174,6 @@ enum DeviceValidationMode: String, Codable, CaseIterable {
     case playIntegrity = "play-integrity"
 }
 
-extension IAMServiceAccountCredentialsClient {
-}
-
 extension GoogleCloudCredentialsConfiguration {
     init(project: String? = nil, credentials: String? = nil) throws {
         try self.init(projectId: project)
