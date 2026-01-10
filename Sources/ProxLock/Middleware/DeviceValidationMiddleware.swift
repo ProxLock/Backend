@@ -78,6 +78,7 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
         guard let googlePlayKey = request.headers.first(name: "X-Play-Integrity-Key") else {
             throw Abort(.unauthorized, reason: "Play Integrity Key was not found")
         }
+        
         try await dbKey.$project.load(on: request.db)
         let project = try await dbKey.$project.get(on: request.db)
         
@@ -85,6 +86,12 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
         guard let integrityConfig = try await project.$playIntegrityConfig.get(on: request.db) else {
             throw Abort(.internalServerError, reason: "Play Integrity Config was not found")
         }
+        
+        // Allow bypass token
+        guard integrityConfig.bypassToken != googlePlayKey else {
+            return try await next.respond(to: request)
+        }
+        
         let client = try await googleCloudAuthStore.client(for: integrityConfig, request: request)
         
         let postMessage = PlayIntegrityPayload(integrityToken: googlePlayKey)
