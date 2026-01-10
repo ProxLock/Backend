@@ -2,7 +2,7 @@ import Fluent
 
 extension PlayIntegrityConfig: Migratable {
     static let migrations: [any Migration] = [
-        CreateMigration(),
+        CreateMigration()
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -11,6 +11,7 @@ extension PlayIntegrityConfig: Migratable {
                 .id()
                 .field("gcloud_json", .string, .required)
                 .field("bypass_token", .string, .required)
+                .field("package_name", .string, .required)
                 .field("project_id", .uuid, .required, .references(Project.schema, "id", onDelete: .cascade))
                 .create()
         }

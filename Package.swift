@@ -18,7 +18,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/jwt.git", from: "5.0.0"),
         .package(url: "https://github.com/mcrich23/vapordevicecheck.git", from: "1.1.3"),
         .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),
-        .package(url: "https://github.com/0xRohit/google-cloud-kit.git", branch: "main"),
+        .package(url: "https://github.com/mcrich23/google-cloud-kit.git", branch: "main"),
     ],
     targets: [
         .executableTarget(

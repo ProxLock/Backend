@@ -79,9 +79,7 @@ struct PlayIntegrityConfigController: RouteCollection {
         try await project.$deviceCheckKey.load(on: req.db)
         try await project.$playIntegrityConfig.load(on: req.db)
 
-        let jsonDecoder = JSONDecoder()
-        jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
-        let gcloudJson = try req.content.decode(GoogleServiceAccountCredentials.self, using: jsonDecoder)
+        let gcloudJson = try req.content.decode(PlayIntegrityConfigRecievingDTO.self)
 
         let config = try await setConfig(gcloudJson, on: project, from: req)
         return try config.toDTO()
@@ -135,7 +133,7 @@ struct PlayIntegrityConfigController: RouteCollection {
             throw Abort(.notFound)
         }
 
-        let config = try await setConfig(existingConfig.gcloudJson, on: project, from: req)
+        let config = try await setConfig(PlayIntegrityConfigRecievingDTO(packageName: existingConfig.packageName, gcloudJson: existingConfig.configData), on: project, from: req)
 
         return try config.toDTO()
     }
@@ -217,19 +215,6 @@ struct PlayIntegrityConfigController: RouteCollection {
 
     // MARK: - Private Functions
 
-    /// Sets the ``PlayIntegrityConfig`` for a project using the Google Cloud service account's JSON string.
-    ///
-    /// - Parameters:
-    ///   - gcloudJson: The Google Cloud service account credentials as a JSON string
-    ///   - project: The project to configure PlayIntegrity for
-    ///   - req: The HTTP request for database access
-    /// - Returns: The created or updated ``PlayIntegrityConfig``
-    func setConfig(
-        _ gcloudJson: String, on project: Project, from req: Request
-    ) async throws -> PlayIntegrityConfig {
-        return try await self.setConfig(GoogleServiceAccountCredentials(fromJsonString: gcloudJson), on: project, from: req)
-    }
-
     /// Sets the ``PlayIntegrityConfig`` for a project using the Google Cloud service account credentials.
     ///
     /// If an existing configuration is found, it updates the credentials. Otherwise, it creates a new configuration.
@@ -241,8 +226,10 @@ struct PlayIntegrityConfigController: RouteCollection {
     ///   - req: The HTTP request for database access
     /// - Returns: The created or updated ``PlayIntegrityConfig``
     func setConfig(
-        _ gcloudJson: GoogleServiceAccountCredentials, on project: Project, from req: Request
+        _ dto: PlayIntegrityConfigRecievingDTO, on project: Project, from req: Request
     ) async throws -> PlayIntegrityConfig {
+        let gcloudJson = dto.gcloudJson
+        
         try await project.$deviceCheckKey.load(on: req.db)
         try await project.$playIntegrityConfig.load(on: req.db)
 
@@ -257,6 +244,7 @@ struct PlayIntegrityConfigController: RouteCollection {
             config = foundConfig
         } else {
             config = PlayIntegrityConfig(
+                packageName: dto.packageName,
                 gcloudJson: try gcloudJson.asString(),
                 bypassToken: deviceCheckKey?.bypassToken ?? UUID().uuidString)
         }
