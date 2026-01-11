@@ -11,8 +11,6 @@ import Crypto
 
 /// A class for holding common Clerk webhook data and functions.
 class ClerkWebhookManager {
-    private static let secret: String = Environment.get("CLERK_WEBHOOK_SECRET")!
-    
     /// Generates Svix-style webhook signatures (HMAC-SHA256, base64).
     static func svixSignature(svixID: String, svixTimestamp: String, body: String) -> String? {
         // 1. Construct signed content
@@ -20,7 +18,7 @@ class ClerkWebhookManager {
         
         // 2. Extract and Base64-decode key (after underscore)
         guard
-            let encodedKey = secret.split(separator: "_").last,
+            let encodedKey = Constants.clerkWebhookSecret.split(separator: "_").last,
             let keyData = Data(base64Encoded: String(encodedKey))
         else {
             return nil
