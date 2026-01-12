@@ -4,9 +4,16 @@ import Vapor
 struct UserController: RouteCollection {
     func boot(routes: any RoutesBuilder) throws {
         let users = routes.grouped("me")
+        
         users.post(use: self.create)
         users.get(use: self.get)
         users.delete(use: self.delete)
+        
+        let adminRoute = routes.grouped("user")
+        
+        adminRoute.post(use: self.create)
+        adminRoute.get(use: self.get)
+        adminRoute.delete(use: self.delete)
     }
 
     /// POST /me

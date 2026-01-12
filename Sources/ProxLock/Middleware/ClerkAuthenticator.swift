@@ -29,6 +29,14 @@ struct ClerkAuthenticator: AsyncBearerAuthenticator {
         do {
             let claims = try await Self.verifyClerkToken(bearer.token, on: request)
             
+            // Impersonate user if success with admin route
+            if let userID = request.parameters.get("userID"), request.url.path.contains("/admin"), Constants.adminClerkIDs.contains(claims.id) {
+                guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
+                    throw Errors.userNotFound
+                }
+                request.auth.login(user)
+            }
+            
             guard let user = try await User.query(on: request.db).filter(\.$clerkID == claims.id).first() else {
                 throw Errors.userNotFound
             }
