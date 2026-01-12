@@ -44,7 +44,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             projects: projectsDTOs,
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
-            requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit
+            requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit,
+            isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
         )
     }
     

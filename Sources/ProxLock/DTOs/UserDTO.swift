@@ -8,4 +8,5 @@ struct UserDTO: Content {
     let currentRequestUsage: Int?
     let requestLimit: Int?
     var justRegistered: Bool?
+    let isAdmin: Bool?
 }
