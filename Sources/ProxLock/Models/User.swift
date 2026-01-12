@@ -17,6 +17,9 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @OptionalEnum(key: "current_subscription")
     var currentSubscription: SubscriptionPlans?
     
+    @Field(key: "override_monthly_request_limit")
+    var overrideMonthlyRequestLimit: Int?
+    
     @Children(for: \.$user)
     var usageHistory: [MonthlyUserUsageHistory]
     
@@ -41,7 +44,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             projects: projectsDTOs,
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
-            requestLimit: (currentSubscription ?? .free).requestLimit
+            requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit
         )
     }
     
