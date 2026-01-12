@@ -29,6 +29,7 @@ struct ClerkAuthenticator: AsyncBearerAuthenticator {
         do {
             let claims = try await Self.verifyClerkToken(bearer.token, on: request)
             
+            try validateAdminAccess(for: request, with: claims)
             // Impersonate user if success with admin route
             if let userID = request.parameters.get("userID"), request.url.path.contains("/admin"), Constants.adminClerkIDs.contains(claims.id) {
                 guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
@@ -43,6 +44,13 @@ struct ClerkAuthenticator: AsyncBearerAuthenticator {
             request.auth.login(user)
         } catch {
             request.logger.warning("Invalid Clerk token: \(error)")
+            throw error
+        }
+    }
+    
+    func validateAdminAccess(for request: Request, with claims: ClerkClaims) throws {
+        if request.url.path.contains("/admin"), !Constants.adminClerkIDs.contains(claims.id) {
+            throw Abort(.unauthorized)
         }
     }
     

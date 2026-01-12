@@ -9,11 +9,14 @@ struct UserController: RouteCollection {
         users.get(use: self.get)
         users.delete(use: self.delete)
         
-        let adminRoute = routes.grouped("user")
+        let adminUserRoute = routes.grouped(":userID/user")
         
-        adminRoute.post(use: self.create)
-        adminRoute.get(use: self.get)
-        adminRoute.delete(use: self.delete)
+        adminUserRoute.post(use: self.create)
+        adminUserRoute.get(use: self.get)
+        adminUserRoute.delete(use: self.delete)
+        adminUserRoute.post("override-limit", use: self.overrideLimit)
+        
+        routes.get("users", use: self.index)
     }
 
     /// POST /me
@@ -84,5 +87,48 @@ struct UserController: RouteCollection {
 
         try await user.delete(on: req.db)
         return .accepted
+    }
+    
+    // MARK: - Admin Functions
+    /// POST /admin/:userID/user/override-limit
+    ///
+    /// Sets the override limit for a user.
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// - Parameters:
+    ///   - req: The HTTP request containing user data in the request body
+    /// - Returns: ``UserDTO`` object containing the created user information
+    @Sendable
+    func overrideLimit(req: Request) async throws -> UserDTO {
+        let user = try req.auth.require(User.self)
+        
+        let value = try? req.content.decode(Int.self)
+        
+        user.overrideMonthlyRequestLimit = value
+        
+        return try await user.toDTO(on: req.db)
+    }
+    
+    /// GET /admin/users
+    ///
+    /// Gets all users in a paginated fashion
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// - Parameters:
+    ///   - req: The HTTP request containing user data in the request body
+    /// - Returns: ``UserDTO`` object containing the created user information
+    @Sendable
+    func index(req: Request) async throws -> [UserDTO] {
+        guard req.url.path.contains("/admin") else {
+            throw Abort(.unauthorized)
+        }
+        
+        let users = try await User.query(on: req.db).paginate(for: req).items
+        
+        return try await users.asyncMap { try await $0.toDTO(on: req.db) }
     }
 }
