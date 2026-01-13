@@ -45,7 +45,6 @@ struct ClerkAuthenticator: AsyncBearerAuthenticator {
             request.auth.login(user)
         } catch {
             request.logger.warning("Invalid Clerk token: \(error)")
-            throw error
         }
     }
     
