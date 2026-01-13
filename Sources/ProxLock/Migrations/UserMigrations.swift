@@ -4,7 +4,8 @@ extension User: Migratable {
     static let migrations: [any Migration] = [
         CreateUserMigration(),
         UpdateUserToClerkMigration(),
-        AddBillToUserMigration()
+        AddBillToUserMigration(),
+        AddOverrideMonthlyRequestLimit()
     ]
     
     struct CreateUserMigration: AsyncMigration {
@@ -46,6 +47,20 @@ extension User: Migratable {
         func revert(on database: any Database) async throws {
             try await database.schema(User.schema)
                 .deleteField("current_subscription")
+                .update()
+        }
+    }
+    
+    struct AddOverrideMonthlyRequestLimit: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(User.schema)
+                .field("override_monthly_request_limit", .int)
+                .update()
+        }
+        
+        func revert(on database: any Database) async throws {
+            try await database.schema(User.schema)
+                .deleteField("override_monthly_request_limit")
                 .update()
         }
     }

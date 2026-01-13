@@ -109,9 +109,14 @@ struct RequestProxyController: RouteCollection {
         try await project.$user.load(on: req.db)
         let user = try await project.$user.get(on: req.db)
         
+        // Limit of less than or equal to -1 is Infinite
+        if let overrideMonthlyRequestLimit = user.overrideMonthlyRequestLimit, overrideMonthlyRequestLimit <= -1 {
+            return true
+        }
+        
         let currentRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         
-        return currentRecord.requestCount < (user.currentSubscription ?? .free).requestLimit
+        return currentRecord.requestCount < user.overrideMonthlyRequestLimit ?? (user.currentSubscription ?? .free).requestLimit
     }
     
     private func addToUsersRequestHistory(req: Request, dbKey: APIKey) async throws {

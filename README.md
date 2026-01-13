@@ -101,6 +101,7 @@ Before you begin, ensure you have the following installed:
 | `DATABASE_USERNAME` | Database username | Yes | - |
 | `DATABASE_PASSWORD` | Database password | Yes | - |
 | `CLERK_WEBHOOK_SECRET` | Clerk webhook secret for authentication | Yes | - |
+| `CLERK_ADMIN_IDS` | The Clerk User IDs denoting administrators | no | - |
 
 ## Building and Running
 

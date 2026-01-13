@@ -22,7 +22,14 @@ private let rateLimitManager = RateLimitManager()
 private let googleCloudAuthStore: GoogleCloudAuthStore = GoogleCloudAuthStore()
 
 private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
+    // Proxy Route
     try v1.grouped(RateLimitMiddleware(manager: rateLimitManager)).grouped(DeviceValidationMiddleware(googleCloudAuthStore: googleCloudAuthStore)).register(collection: RequestProxyController())
+    
+    // Admin Route
+    let adminRoute = v1.grouped("admin").grouped(ClerkAuthenticator())
+    try adminRoute.register(collection: UserController())
+    
+    // Dashboard Routes
     
     let v1_authenticatedRouters = v1.grouped(ClerkAuthenticator())
     
