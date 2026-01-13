@@ -123,13 +123,14 @@ struct UserController: RouteCollection {
     ///   - req: The HTTP request containing user data in the request body
     /// - Returns: ``UserDTO`` object containing the created user information
     @Sendable
-    func index(req: Request) async throws -> [UserDTO] {
+    func index(req: Request) async throws -> PaginatedUsersDTO {
         guard req.url.path.contains("/admin") else {
             throw Abort(.unauthorized)
         }
         
-        let users = try await User.query(on: req.db).paginate(for: req).items
+        let pagination = try await User.query(on: req.db).paginate(for: req)
+        let users = try await pagination.items.asyncMap { try await $0.toDTO(on: req.db) }
         
-        return try await users.asyncMap { try await $0.toDTO(on: req.db) }
+        return PaginatedUsersDTO(metadata: pagination.metadata, users: users)
     }
 }

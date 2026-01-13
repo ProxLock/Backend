@@ -10,3 +10,8 @@ struct UserDTO: Content {
     var justRegistered: Bool?
     let isAdmin: Bool?
 }
+
+struct PaginatedUsersDTO: Content {
+    let metadata: PageMetadata
+    let users: [UserDTO]
+}
