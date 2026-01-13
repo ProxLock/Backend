@@ -9,7 +9,7 @@ struct UserController: RouteCollection {
         users.get(use: self.get)
         users.delete(use: self.delete)
         
-        let adminUserRoute = routes.grouped(":userID/user")
+        let adminUserRoute = routes.grouped(":userID", "user")
         
         adminUserRoute.post(use: self.create)
         adminUserRoute.get(use: self.get)
@@ -107,6 +107,7 @@ struct UserController: RouteCollection {
         let value = try? req.content.decode(Int.self)
         
         user.overrideMonthlyRequestLimit = value
+        try await user.save(on: req.db)
         
         return try await user.toDTO(on: req.db)
     }
