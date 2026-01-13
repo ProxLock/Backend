@@ -36,6 +36,7 @@ struct ClerkAuthenticator: AsyncBearerAuthenticator {
                     throw Errors.userNotFound
                 }
                 request.auth.login(user)
+                return
             }
             
             guard let user = try await User.query(on: request.db).filter(\.$clerkID == claims.id).first() else {
