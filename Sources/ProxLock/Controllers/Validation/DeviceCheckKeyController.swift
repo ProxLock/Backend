@@ -120,12 +120,16 @@ struct DeviceCheckKeyController: RouteCollection {
         
         // Link to Keys
         Task {
-            try await project.$apiKeys.load(on: req.db)
-            let apiKeys = try await project.$apiKeys.get(on: req.db)
-            
-            for apiKey in apiKeys {
-                apiKey.$deviceCheckKey.id = try key.requireID()
-                try await apiKey.save(on: req.db)
+            do {
+                try await project.$apiKeys.load(on: req.db)
+                let apiKeys = try await project.$apiKeys.get(on: req.db)
+                
+                for apiKey in apiKeys {
+                    apiKey.$deviceCheckKey.id = try key.requireID()
+                    try await apiKey.save(on: req.db)
+                }
+            } catch {
+                req.logger.error("Error Linking DeviceCheckKey to APIKeys: \(error)")
             }
         }
         
@@ -206,12 +210,16 @@ struct DeviceCheckKeyController: RouteCollection {
         
         // Link to keys
         Task {
-            try await project.$apiKeys.load(on: req.db)
-            let apiKeys = try await project.$apiKeys.get(on: req.db)
-            
-            for apiKey in apiKeys {
-                apiKey.$deviceCheckKey.id = try key.requireID()
-                try await apiKey.save(on: req.db)
+            do {
+                try await project.$apiKeys.load(on: req.db)
+                let apiKeys = try await project.$apiKeys.get(on: req.db)
+                
+                for apiKey in apiKeys {
+                    apiKey.$deviceCheckKey.id = try key.requireID()
+                    try await apiKey.save(on: req.db)
+                }
+            } catch {
+                req.logger.error("Error Linking DeviceCheckKey to APIKeys: \(error)")
             }
         }
         
