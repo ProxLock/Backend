@@ -1,5 +1,5 @@
 # ProxLock Backend
-![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.proxlock.dev%2Fversion.json&query=%24.commit_hash&label=Running%20Commit)
+![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.proxlock.dev%2Fversion.json&query=%24.commit_hash&label=Running%20Commit:)
 
 💧 A Vapor Swift backend for ProxLock, providing API proxy functionality with authentication, device validation, and usage tracking.
 
