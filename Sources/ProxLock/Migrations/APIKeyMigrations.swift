@@ -7,6 +7,7 @@ extension APIKey: Migratable {
         AddWhitelistedUrls(),
         AddRateLimit(),
         AddAllowsWeb(),
+        AddDirectLinkToUser(),
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -76,6 +77,20 @@ extension APIKey: Migratable {
         func revert(on database: any Database) async throws {
             try await database.schema(APIKey.schema)
                 .deleteField("allows_web")
+                .update()
+        }
+    }
+    
+    struct AddDirectLinkToUser: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .field("user_id", .uuid, .references(User.schema, "id", onDelete: .cascade))
+                .update()
+        }
+
+        func revert(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .deleteField("user_id")
                 .update()
         }
     }

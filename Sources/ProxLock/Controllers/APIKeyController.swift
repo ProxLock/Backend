@@ -92,6 +92,7 @@ struct APIKeyController: RouteCollection {
         }
 
         key.$project.id = try project.requireID()
+        key.$user.id = try user.requireID()
 
         try await key.save(on: req.db)
         
@@ -154,6 +155,8 @@ struct APIKeyController: RouteCollection {
         if let allowsWeb = keyDTO.allowsWeb {
             key.allowsWeb = allowsWeb
         }
+        
+        key.$user.id = try user.requireID()
         
         try await key.save(on: req.db)
 

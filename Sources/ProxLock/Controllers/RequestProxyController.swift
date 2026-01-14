@@ -59,8 +59,11 @@ struct RequestProxyController: RouteCollection {
             throw Abort(.badRequest, reason: "Key was not found")
         }
         
+        // Get User
+        let user = try await getUser(forAPIKey: dbKey, on: req)
+        
         // Validate user is under request limit
-        guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey) else {
+        guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey, with: user) else {
             throw Abort(.paymentRequired, reason: "Beyond request limit")
         }
         
@@ -97,7 +100,7 @@ struct RequestProxyController: RouteCollection {
         
         Task {
             do {
-                try await addToUsersRequestHistory(req: req, dbKey: dbKey)
+                try await addToUsersRequestHistory(req: req, dbKey: dbKey, with: user)
             } catch {
                 req.logger.error("Error Adding to Request History: \(error)")
             }
@@ -106,15 +109,7 @@ struct RequestProxyController: RouteCollection {
         return try await req.client.send(request)
     }
     
-    private func validateUserLimitAllowsRequest(req: Request, dbKey: APIKey) async throws -> Bool {
-        // Get Project
-        try await dbKey.$project.load(on: req.db)
-        let project = try await dbKey.$project.get(on: req.db)
-        
-        // Get User
-        try await project.$user.load(on: req.db)
-        let user = try await project.$user.get(on: req.db)
-        
+    private func validateUserLimitAllowsRequest(req: Request, dbKey: APIKey, with user: User) async throws -> Bool {
         // Limit of less than or equal to -1 is Infinite
         if let overrideMonthlyRequestLimit = user.overrideMonthlyRequestLimit, overrideMonthlyRequestLimit <= -1 {
             return true
@@ -125,15 +120,31 @@ struct RequestProxyController: RouteCollection {
         return currentRecord.requestCount < user.overrideMonthlyRequestLimit ?? (user.currentSubscription ?? .free).requestLimit
     }
     
-    private func addToUsersRequestHistory(req: Request, dbKey: APIKey) async throws {
-        // Get Project
-        try await dbKey.$project.load(on: req.db)
-        let project = try await dbKey.$project.get(on: req.db)
-        
-        // Get User
-        try await project.$user.load(on: req.db)
-        let user = try await project.$user.get(on: req.db)
-        
+    private func getUser(forAPIKey dbKey: APIKey, on req: Request) async throws -> User {
+        if dbKey.$user.id == nil {
+            // Get Project
+            try await dbKey.$project.load(on: req.db)
+            let project = try await dbKey.$project.get(on: req.db)
+            
+            // Get User
+            try await project.$user.load(on: req.db)
+            let user = try await project.$user.get(on: req.db)
+            
+            dbKey.$user.id = try user.requireID()
+            try await dbKey.save(on: req.db)
+            
+            return user
+        } else {
+            try await dbKey.$user.load(on: req.db)
+            guard let user = try await dbKey.$user.get(on: req.db) else {
+                throw Abort(.internalServerError, reason: "Could not load User from APIKey")
+            }
+            
+            return user
+        }
+    }
+    
+    private func addToUsersRequestHistory(req: Request, dbKey: APIKey, with user: User) async throws {
         // Get Historical Log
         let monthlyEntry = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         

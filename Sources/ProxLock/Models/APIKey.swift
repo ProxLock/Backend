@@ -30,6 +30,9 @@ final class APIKey: Model, @unchecked Sendable {
     
     @Parent(key: "project_id")
     var project: Project
+    
+    @OptionalParent(key: "user_id")
+    var user: User?
 
     init() { }
 
