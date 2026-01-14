@@ -95,7 +95,13 @@ struct RequestProxyController: RouteCollection {
         
         let request = ClientRequest(method: .RAW(value: httpMethod), url: URI(string: destinationString), headers: headers, body: req.body.data)
         
-        try await addToUsersRequestHistory(req: req, dbKey: dbKey)
+        Task {
+            do {
+                try await addToUsersRequestHistory(req: req, dbKey: dbKey)
+            } catch {
+                req.logger.error("Error Adding to Request History: \(error)")
+            }
+        }
         
         return try await req.client.send(request)
     }
