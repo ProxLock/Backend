@@ -99,8 +99,8 @@ extension APIKey: Migratable {
     struct AddDirectLinkToDeviceValidation: AsyncMigration {
         func prepare(on database: any Database) async throws {
             try await database.schema(APIKey.schema)
-                .field("device_check_id", .uuid, .references(DeviceCheckKey.schema, "id"))
-                .field("play_integrity_id", .uuid, .references(PlayIntegrityConfig.schema, "id"))
+                .field("device_check_id", .uuid, .references(DeviceCheckKey.schema, "id", onDelete: .setNull))
+                .field("play_integrity_id", .uuid, .references(PlayIntegrityConfig.schema, "id", onDelete: .setNull))
                 .update()
         }
 
