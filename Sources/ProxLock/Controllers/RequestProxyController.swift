@@ -6,6 +6,8 @@ import FoundationNetworking
 #endif
 
 struct RequestProxyController: RouteCollection {
+    let apiKeyDataLinkingMigrationController: APIKeyDataLinkingMigrationController
+    
     func boot(routes: any RoutesBuilder) throws {
         let keys = routes.grouped("proxy")
 
@@ -60,7 +62,7 @@ struct RequestProxyController: RouteCollection {
         }
         
         // Get User
-        let user = try await getUser(forAPIKey: dbKey, on: req)
+        let user = try await apiKeyDataLinkingMigrationController.getUser(forAPIKey: dbKey, on: req)
         
         // Validate user is under request limit
         guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey, with: user) else {
@@ -118,30 +120,6 @@ struct RequestProxyController: RouteCollection {
         let currentRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
         
         return currentRecord.requestCount < user.overrideMonthlyRequestLimit ?? (user.currentSubscription ?? .free).requestLimit
-    }
-    
-    private func getUser(forAPIKey dbKey: APIKey, on req: Request) async throws -> User {
-        if dbKey.$user.id == nil {
-            // Get Project
-            try await dbKey.$project.load(on: req.db)
-            let project = try await dbKey.$project.get(on: req.db)
-            
-            // Get User
-            try await project.$user.load(on: req.db)
-            let user = try await project.$user.get(on: req.db)
-            
-            dbKey.$user.id = try user.requireID()
-            try await dbKey.save(on: req.db)
-            
-            return user
-        } else {
-            try await dbKey.$user.load(on: req.db)
-            guard let user = try await dbKey.$user.get(on: req.db) else {
-                throw Abort(.internalServerError, reason: "Could not load User from APIKey")
-            }
-            
-            return user
-        }
     }
     
     private func addToUsersRequestHistory(req: Request, dbKey: APIKey, with user: User) async throws {

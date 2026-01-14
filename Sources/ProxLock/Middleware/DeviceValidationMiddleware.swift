@@ -33,6 +33,7 @@ actor GoogleCloudAuthStore {
 
 struct DeviceValidationMiddleware: AsyncMiddleware {
     let googleCloudAuthStore: GoogleCloudAuthStore
+    let apiKeyDataLinkingMigrationController: APIKeyDataLinkingMigrationController
     
     func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         guard let modeString = request.headers.first(name: DeviceValidationHeaderKeys.validationMode), let mode = DeviceValidationMode(rawValue: modeString) else {
@@ -72,32 +73,7 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
         return response
     }
     
-    // MARK: – Play Integrity
-    private func getPlayIntegrityConfig(for dbKey: APIKey, from request: Request) async throws -> PlayIntegrityConfig {
-        if dbKey.$playIntegrityConfig.id == nil {
-            try await dbKey.$project.load(on: request.db)
-            let project = try await dbKey.$project.get(on: request.db)
-            
-            try await project.$playIntegrityConfig.load(on: request.db)
-            guard let integrityConfig = try await project.$playIntegrityConfig.get(on: request.db) else {
-                throw Abort(.internalServerError, reason: "Play Integrity Config was not found")
-            }
-            
-            // Set direct link
-            dbKey.$playIntegrityConfig.id = try integrityConfig.requireID()
-            try await dbKey.save(on: request.db)
-            
-            return integrityConfig
-        } else {
-            try await dbKey.$playIntegrityConfig.load(on: request.db)
-            guard let integrityConfig = try await dbKey.$playIntegrityConfig.get(on: request.db) else {
-                throw Abort(.internalServerError, reason: "Play Integrity Config was not found")
-            }
-            
-            return integrityConfig
-        }
-    }
-    
+    // MARK: – Play Integrity    
     private func handlePlayIntegrity(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         let dbKey = try await getDBKey(from: request)
         
@@ -105,7 +81,7 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
             throw Abort(.unauthorized, reason: "Play Integrity Key was not found")
         }
         
-        let integrityConfig = try await getPlayIntegrityConfig(for: dbKey, from: request)
+        let integrityConfig = try await apiKeyDataLinkingMigrationController.getPlayIntegrityConfig(for: dbKey, from: request)
         
         // Allow bypass token
         guard integrityConfig.bypassToken != googlePlayKey else {
@@ -136,36 +112,11 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
         return try await next.respond(to: request)
     }
     
-    // MARK: – Device Check
-    private func getDeviceCheckKey(for dbKey: APIKey, from request: Request) async throws -> DeviceCheckKey {
-        if dbKey.$deviceCheckKey.id == nil {
-            try await dbKey.$project.load(on: request.db)
-            let project = try await dbKey.$project.get(on: request.db)
-            
-            try await project.$deviceCheckKey.load(on: request.db)
-            guard let key = try await project.$deviceCheckKey.get(on: request.db) else {
-                throw Abort(.unauthorized, reason: "Key was not found")
-            }
-            
-            // Set direct link
-            dbKey.$deviceCheckKey.id = try key.requireID()
-            try await dbKey.save(on: request.db)
-            
-            return key
-        } else {
-            try await dbKey.$deviceCheckKey.load(on: request.db)
-            guard let key = try await dbKey.$deviceCheckKey.get(on: request.db) else {
-                throw Abort(.unauthorized, reason: "Key was not found")
-            }
-            
-            return key
-        }
-    }
-    
+    // MARK: – Device Check    
     private func handleDeviceCheck(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         // Get Project so we can fetch the user
         let dbKey = try await getDBKey(from: request)
-        let key = try await getDeviceCheckKey(for: dbKey, from: request)
+        let key = try await apiKeyDataLinkingMigrationController.getDeviceCheckKey(for: dbKey, from: request)
         
         let kid = JWKIdentifier(string: key.keyID)
         let privateKey = try ES256PrivateKey(pem: Data(key.secretKey.utf8))
