@@ -93,6 +93,15 @@ struct APIKeyController: RouteCollection {
 
         key.$project.id = try project.requireID()
         key.$user.id = try user.requireID()
+        
+        // Set Device Validation
+        try await project.$deviceCheckKey.load(on: req.db)
+        let deviceCheckKey = try await project.$deviceCheckKey.get(on: req.db)
+        key.$deviceCheckKey.id = try deviceCheckKey?.requireID()
+        
+        try await project.$playIntegrityConfig.load(on: req.db)
+        let playIntegrityConfig = try await project.$playIntegrityConfig.get(on: req.db)
+        key.$playIntegrityConfig.id = try playIntegrityConfig?.requireID()
 
         try await key.save(on: req.db)
         
