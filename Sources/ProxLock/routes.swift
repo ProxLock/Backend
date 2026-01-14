@@ -2,12 +2,18 @@ import Fluent
 import Vapor
 
 func routes(_ app: Application) throws {
+    let commitHash: String = "%%REPLACE_HERE_IN_CI%%"
+    
     app.get { req async in
         req.redirect(to: "https://proxlock.dev")
     }
 
     app.get("version") { req async -> String in
-        "Running commit: %%REPLACE_HERE_IN_CI%%"
+        "Running commit: \(commitHash)"
+    }
+    // Return in json form
+    app.get("version.json") { req async -> String in
+        "{\"commit_hash\": \"\(commitHash)\"}"
     }
     
     try registerV1Routes(app.grouped("v1"))
