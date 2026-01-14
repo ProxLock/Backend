@@ -8,6 +8,7 @@ extension APIKey: Migratable {
         AddRateLimit(),
         AddAllowsWeb(),
         AddDirectLinkToUser(),
+        AddDirectLinkToDeviceValidation()
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -91,6 +92,22 @@ extension APIKey: Migratable {
         func revert(on database: any Database) async throws {
             try await database.schema(APIKey.schema)
                 .deleteField("user_id")
+                .update()
+        }
+    }
+    
+    struct AddDirectLinkToDeviceValidation: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .field("device_check_id", .uuid, .references(DeviceCheckKey.schema, "id"))
+                .field("play_integrity_id", .uuid, .references(PlayIntegrityConfig.schema, "id"))
+                .update()
+        }
+
+        func revert(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .deleteField("device_check_id")
+                .deleteField("play_integrity_id")
                 .update()
         }
     }

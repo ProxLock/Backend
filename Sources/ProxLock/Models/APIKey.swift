@@ -33,6 +33,12 @@ final class APIKey: Model, @unchecked Sendable {
     
     @OptionalParent(key: "user_id")
     var user: User?
+    
+    @OptionalParent(key: "device_check_id")
+    var deviceCheckKey: DeviceCheckKey?
+    
+    @OptionalParent(key: "play_integrity_id")
+    var playIntegrityConfig: PlayIntegrityConfig?
 
     init() { }
 

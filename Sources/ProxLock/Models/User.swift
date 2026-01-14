@@ -27,7 +27,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     var projects: [Project]
     
     @Children(for: \.$user)
-    var keys: [APIKey]
+    private var keys: [APIKey]
 
     init() { }
 

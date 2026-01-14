@@ -118,6 +118,17 @@ struct DeviceCheckKeyController: RouteCollection {
         key.$project.id = try project.requireID()
         try await key.save(on: req.db)
         
+        // Link to Keys
+        Task {
+            try await project.$apiKeys.load(on: req.db)
+            let apiKeys = try await project.$apiKeys.get(on: req.db)
+            
+            for apiKey in apiKeys {
+                apiKey.$deviceCheckKey.id = try key.requireID()
+                try await apiKey.save(on: req.db)
+            }
+        }
+        
         return key.toDTO()
     }
 
@@ -192,6 +203,17 @@ struct DeviceCheckKeyController: RouteCollection {
         // Assign to user and save
         key.$project.id = try project.requireID()
         try await key.save(on: req.db)
+        
+        // Link to keys
+        Task {
+            try await project.$apiKeys.load(on: req.db)
+            let apiKeys = try await project.$apiKeys.get(on: req.db)
+            
+            for apiKey in apiKeys {
+                apiKey.$deviceCheckKey.id = try key.requireID()
+                try await apiKey.save(on: req.db)
+            }
+        }
         
         return key.toDTO()
     }
