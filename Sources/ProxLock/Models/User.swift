@@ -20,6 +20,9 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "override_monthly_request_limit")
     var overrideMonthlyRequestLimit: Int?
     
+    @Field(key: "override_access_key_limit")
+    var overrideAccessKeyLimit: Int?
+    
     @Children(for: \.$user)
     var usageHistory: [MonthlyUserUsageHistory]
     

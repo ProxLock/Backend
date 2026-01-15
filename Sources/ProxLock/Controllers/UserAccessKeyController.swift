@@ -7,6 +7,10 @@ struct UserAccessKeyController: RouteCollection {
         
         users.post(use: self.create)
         users.delete(use: self.delete)
+        
+        let adminUsers = routes.grouped("admin", ":userID", "user", "api-keys")
+        
+        adminUsers.get("override-limit", use: self.overrideLimit)
     }
 
     /// POST /me/api-keys
@@ -28,7 +32,9 @@ struct UserAccessKeyController: RouteCollection {
         try await user.$accessKey.load(on: req.db)
         let allKeys = try await user.$accessKey.get(on: req.db)
         
-        guard allKeys.count+1 <= user.currentSubscription?.userApiKeyLimit ?? SubscriptionPlans.free.userApiKeyLimit else {
+        let maxUsage = user.overrideAccessKeyLimit ?? (user.currentSubscription?.userApiKeyLimit ?? SubscriptionPlans.free.userApiKeyLimit)
+        
+        guard allKeys.count+1 <= maxUsage || maxUsage <= -1 else {
             throw Abort(.forbidden, reason: "User API Key Limit Reached.")
         }
         let dto = try req.content.decode(UserAPIKeyDTO.self)
@@ -71,5 +77,31 @@ struct UserAccessKeyController: RouteCollection {
         try await key?.delete(on: req.db)
         
         return .accepted
+    }
+    
+    // MARK: - Admin Functions
+    /// POST /admin/:userID/user/api-keys/override-limit
+    ///
+    /// Sets the override limit for a user.
+    ///
+    /// ## Required Body
+    /// An optional `Int` that sets the limit
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// - Parameters:
+    ///   - req: The HTTP request containing user data in the request body
+    /// - Returns: ``UserDTO`` object containing the created user information
+    @Sendable
+    func overrideLimit(req: Request) async throws -> UserDTO {
+        let user = try req.auth.require(User.self)
+        
+        let value = try? req.content.decode(Int.self)
+        
+        user.overrideAccessKeyLimit = value
+        try await user.save(on: req.db)
+        
+        return try await user.toDTO(on: req.db)
     }
 }

@@ -111,7 +111,7 @@ enum SubscriptionPlans: String, Codable {
         switch self {
         case .free: return 0
         case .tenThousandRequests: return 1
-        case .twentyFiveThousandRequests: return .max // Unlimited
+        case .twentyFiveThousandRequests: return -1 // Unlimited
         }
     }
 }
