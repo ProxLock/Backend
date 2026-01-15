@@ -82,7 +82,7 @@ struct UserAccessKeyController: RouteCollection {
     // MARK: - Admin Functions
     /// POST /admin/:userID/user/api-keys/override-limit
     ///
-    /// Sets the override limit for a user.
+    /// Sets the access key override limit for a user.
     ///
     /// ## Required Body
     /// An optional `Int` that sets the limit
