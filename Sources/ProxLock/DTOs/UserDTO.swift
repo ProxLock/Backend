@@ -8,7 +8,7 @@ struct UserDTO: Content {
     let currentRequestUsage: Int?
     let requestLimit: Int?
     var justRegistered: Bool?
-    let apiKeys: [UserAPIKeyDTO]?
+    let accessKeys: [UserAPIKeyDTO]?
     let isAdmin: Bool?
 }
 
