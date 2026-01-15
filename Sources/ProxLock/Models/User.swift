@@ -25,12 +25,16 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     
     @Children(for: \.$user)
     var projects: [Project]
+    
+    @Field(key: "api_keys")
+    var apiKeys: [String]
 
     init() { }
 
-    init(id: UUID? = nil, clerkID: String) {
+    init(id: UUID? = nil, clerkID: String, apiKeys: [String] = []) {
         self.id = id
         self.clerkID = clerkID
+        self.apiKeys = apiKeys
     }
     
     func toDTO(on db: any Database) async throws -> UserDTO {
@@ -45,6 +49,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
             requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit,
+            apiKeys: apiKeys,
             isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
         )
     }
