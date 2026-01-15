@@ -23,7 +23,7 @@ extension User.APIKey: Migratable {
     struct AddNameMigration: AsyncMigration {
         func prepare(on database: any Database) async throws {
             try await database.schema(User.APIKey.schema)
-                .field("name", .string)
+                .field("name", .string, .required)
                 .update()
         }
         
