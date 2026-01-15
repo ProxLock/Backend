@@ -32,8 +32,11 @@ struct UserAPIKeyController: RouteCollection {
             throw Abort(.forbidden, reason: "User API Key Limit Reached.")
         }
         let dto = try req.content.decode(UserAPIKeyDTO.self)
+        guard let name = dto.name else {
+            throw Abort(.badRequest, reason: "Name is required.")
+        }
         
-        let key = User.APIKey(name: dto.name)
+        let key = User.APIKey(name: name)
         key.$user.id = try user.requireID()
         
         try await key.save(on: req.db)
