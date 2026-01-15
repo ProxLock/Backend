@@ -35,7 +35,7 @@ struct Authenticator: AsyncBearerAuthenticator {
     }
     
     private func handleAPIKeyAuth(bearer: BearerAuthorization, for request: Request) async throws {
-        guard let key = try await User.APIKey.find(bearer.token, on: request.db) else {
+        guard let key = try await User.AccessKey.find(bearer.token, on: request.db) else {
             throw Errors.userNotFound
         }
         try await key.$user.load(on: request.db)

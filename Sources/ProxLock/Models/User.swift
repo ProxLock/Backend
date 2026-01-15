@@ -27,7 +27,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     var projects: [Project]
     
     @Children(for: \.$user)
-    var apiKeys: [APIKey]
+    var accessKey: [AccessKey]
 
     init() { }
 
@@ -41,8 +41,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         let projects = try await $projects.get(on: db)
         let projectsDTOs = try await projects.asyncMap({ try await $0.toDTO(on: db) })
         let currentRecord = try await getOrCreateCurrentMonthlyHistoricalRecord(db: db)
-        try await $apiKeys.load(on: db)
-        let apiKeys = try await $apiKeys.get(on: db)
+        try await $accessKey.load(on: db)
+        let apiKeys = try await $accessKey.get(on: db)
         
         return .init(
             id: self.clerkID,
@@ -83,7 +83,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         return historyEntry
     }
     
-    final class APIKey: Model, Authenticatable, @unchecked Sendable {
+    final class AccessKey: Model, Authenticatable, @unchecked Sendable {
         static let schema = "user_api_keys"
         
         @ID(custom: .id)

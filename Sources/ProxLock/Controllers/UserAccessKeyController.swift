@@ -1,7 +1,7 @@
 import Fluent
 import Vapor
 
-struct UserAPIKeyController: RouteCollection {
+struct UserAccessKeyController: RouteCollection {
     func boot(routes: any RoutesBuilder) throws {
         let users = routes.grouped("me", "api-keys")
         
@@ -25,8 +25,8 @@ struct UserAPIKeyController: RouteCollection {
     @Sendable
     func create(req: Request) async throws -> UserAPIKeyDTO {
         let user = try req.auth.require(User.self)
-        try await user.$apiKeys.load(on: req.db)
-        let allKeys = try await user.$apiKeys.get(on: req.db)
+        try await user.$accessKey.load(on: req.db)
+        let allKeys = try await user.$accessKey.get(on: req.db)
         
         guard allKeys.count+1 <= user.currentSubscription?.userApiKeyLimit ?? SubscriptionPlans.free.userApiKeyLimit else {
             throw Abort(.forbidden, reason: "User API Key Limit Reached.")
@@ -36,7 +36,7 @@ struct UserAPIKeyController: RouteCollection {
             throw Abort(.badRequest, reason: "Name is required.")
         }
         
-        let key = User.APIKey(name: name)
+        let key = User.AccessKey(name: name)
         key.$user.id = try user.requireID()
         
         try await key.save(on: req.db)
@@ -66,7 +66,7 @@ struct UserAPIKeyController: RouteCollection {
             throw Abort(.badRequest, reason: "Missing API Key.")
         }
         
-        let key = try await User.APIKey.query(on: req.db).filter(\.$id == dtoKey).filter(\.$user.$id == user.requireID()).with(\.$user).first()
+        let key = try await User.AccessKey.query(on: req.db).filter(\.$id == dtoKey).filter(\.$user.$id == user.requireID()).with(\.$user).first()
         
         try await key?.delete(on: req.db)
         
