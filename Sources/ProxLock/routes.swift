@@ -40,6 +40,7 @@ private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
     let v1_authenticatedRouters = v1.grouped(Authenticator())
     
     try v1_authenticatedRouters.register(collection: UserController())
+    try v1_authenticatedRouters.register(collection: UserAPIKeyController())
     try v1_authenticatedRouters.register(collection: APIKeyController())
     try v1_authenticatedRouters.register(collection: ProjectController())
     try v1_authenticatedRouters.register(collection: DeviceCheckKeyController())

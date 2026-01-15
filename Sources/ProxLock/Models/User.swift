@@ -26,15 +26,14 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Children(for: \.$user)
     var projects: [Project]
     
-    @Field(key: "api_keys")
-    var apiKeys: [String]
+    @Children(for: \.$user)
+    var apiKeys: [APIKey]
 
     init() { }
 
-    init(id: UUID? = nil, clerkID: String, apiKeys: [String] = []) {
+    init(id: UUID? = nil, clerkID: String) {
         self.id = id
         self.clerkID = clerkID
-        self.apiKeys = apiKeys
     }
     
     func toDTO(on db: any Database) async throws -> UserDTO {
@@ -42,6 +41,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         let projects = try await $projects.get(on: db)
         let projectsDTOs = try await projects.asyncMap({ try await $0.toDTO(on: db) })
         let currentRecord = try await getOrCreateCurrentMonthlyHistoricalRecord(db: db)
+        try await $apiKeys.load(on: db)
+        let apiKeys = try await $apiKeys.get(on: db)
         
         return .init(
             id: self.clerkID,
@@ -49,7 +50,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
             requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit,
-            apiKeys: apiKeys,
+            apiKeys: apiKeys.compactMap({ $0.id }),
             isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
         )
     }
@@ -80,6 +81,24 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         }
         
         return historyEntry
+    }
+    
+    final class APIKey: Model, Authenticatable, @unchecked Sendable {
+        static let schema = "user_api_keys"
+        
+        @ID(custom: .id)
+        var id: String?
+        
+        @Parent(key: "user_id")
+        var user: User
+        
+        init() {
+            self.id = "sk_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+        }
+        
+        func toDTO() throws -> UserAPIKeyDTO {
+            try .init(key: requireID())
+        }
     }
 }
 

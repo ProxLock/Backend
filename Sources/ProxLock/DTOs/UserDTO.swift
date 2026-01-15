@@ -12,6 +12,10 @@ struct UserDTO: Content {
     let isAdmin: Bool?
 }
 
+struct UserAPIKeyDTO: Content {
+    let key: String
+}
+
 struct PaginatedUsersDTO: Content {
     let metadata: PageMetadata
     let users: [UserDTO]

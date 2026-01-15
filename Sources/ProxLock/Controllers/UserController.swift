@@ -6,7 +6,6 @@ struct UserController: RouteCollection {
         let users = routes.grouped("me")
         
         users.post(use: self.create)
-        users.put(use: self.update)
         users.get(use: self.get)
         users.delete(use: self.delete)
         
@@ -40,7 +39,7 @@ struct UserController: RouteCollection {
             throw Abort(.unauthorized)
         }
         
-        let claims = try await ClerkAuthenticator.verifyClerkToken(bearer.token, on: req)
+        let claims = try await Authenticator.verifyClerkToken(bearer.token, on: req)
         
         guard !claims.id.isEmpty else {
             throw Abort(.unauthorized)
@@ -53,40 +52,6 @@ struct UserController: RouteCollection {
         dto.justRegistered = true
         
         return dto
-    }
-    
-    /// PUT /me
-    ///
-    /// Updates new user account.
-    ///
-    /// ## Request Body
-    /// Expects a ``UserDTO`` object, but will not update unacceptable objects.
-    ///
-    /// ## Required Headers
-    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
-    ///
-    /// - Parameters:
-    ///   - req: The HTTP request containing user data in the request body
-    /// - Returns: ``UserDTO`` object containing the created user information
-    
-    @Sendable
-    func update(req: Request) async throws -> UserDTO {
-        let user = try req.auth.require(User.self)
-        let dto = try req.content.decode(UserDTO.self)
-        
-        if let apiKeys = dto.apiKeys {
-            if apiKeys.isEmpty {
-                user.apiKeys.removeAll()
-            } else if apiKeys.count <= user.currentSubscription?.userApiKeyLimit ?? SubscriptionPlans.free.userApiKeyLimit {
-                user.apiKeys = apiKeys
-            } else {
-                throw Abort(.forbidden, reason: "User API Key Limit Reached.")
-            }
-        }
-        
-        try await user.save(on: req.db)
-        
-        return try await user.toDTO(on: req.db)
     }
     
     /// GET /me
