@@ -10,6 +10,8 @@ struct UserAccessKeyController: RouteCollection {
         
         let adminUsers = routes.grouped(":userID", "user", "api-keys")
         
+        adminUsers.post(use: self.create)
+        adminUsers.delete(use: self.delete)
         adminUsers.post("override-limit", use: self.overrideLimit)
     }
 
