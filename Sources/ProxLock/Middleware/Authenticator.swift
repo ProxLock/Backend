@@ -20,7 +20,7 @@ struct ClerkClaims: JWTPayload {
     }
 }
 
-struct ClerkAuthenticator: AsyncBearerAuthenticator {
+struct Authenticator: AsyncBearerAuthenticator {
     enum Errors: Error {
         case userNotFound
     }

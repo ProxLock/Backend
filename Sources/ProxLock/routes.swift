@@ -32,12 +32,12 @@ private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
     try v1.grouped(RateLimitMiddleware(manager: rateLimitManager)).grouped(DeviceValidationMiddleware(googleCloudAuthStore: googleCloudAuthStore)).register(collection: RequestProxyController())
     
     // Admin Route
-    let adminRoute = v1.grouped("admin").grouped(ClerkAuthenticator())
+    let adminRoute = v1.grouped("admin").grouped(Authenticator())
     try adminRoute.register(collection: UserController())
     
     // Dashboard Routes
     
-    let v1_authenticatedRouters = v1.grouped(ClerkAuthenticator())
+    let v1_authenticatedRouters = v1.grouped(Authenticator())
     
     try v1_authenticatedRouters.register(collection: UserController())
     try v1_authenticatedRouters.register(collection: APIKeyController())
