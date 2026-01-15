@@ -40,6 +40,11 @@ struct Authenticator: AsyncBearerAuthenticator {
         }
         try await key.$user.load(on: request.db)
         let user = try await key.$user.get(on: request.db)
+        
+        guard try await !didImpersonateFromAdmin(for: request, adminUserID: user.clerkID) else {
+            return
+        }
+        
         request.auth.login(user)
     }
     
@@ -49,11 +54,7 @@ struct Authenticator: AsyncBearerAuthenticator {
             
             try validateAdminAccess(for: request, with: claims)
             // Impersonate user if success with admin route
-            if let userID = request.parameters.get("userID"), request.url.path.contains("/admin"), Constants.adminClerkIDs.contains(claims.id) {
-                guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
-                    throw Errors.userNotFound
-                }
-                request.auth.login(user)
+            guard try await !didImpersonateFromAdmin(for: request, adminUserID: claims.id) else {
                 return
             }
             
@@ -66,10 +67,27 @@ struct Authenticator: AsyncBearerAuthenticator {
         }
     }
     
-    func validateAdminAccess(for request: Request, with claims: ClerkClaims) throws {
+    private func validateAdminAccess(for request: Request, with claims: ClerkClaims) throws {
         if request.url.path.contains("/admin"), !Constants.adminClerkIDs.contains(claims.id) {
             throw Abort(.unauthorized)
         }
+    }
+    
+    private func didImpersonateFromAdmin(for request: Request, adminUserID: String) async throws -> Bool {
+        guard request.url.path.contains("/admin") else {
+            return false
+        }
+        
+        guard let userID = request.parameters.get("userID") else {
+            return false
+        }
+        
+        guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
+            throw Errors.userNotFound
+        }
+        
+        request.auth.login(user)
+        return true
     }
     
     static func verifyClerkToken(_ token: String, on req: Request) async throws -> ClerkClaims {
