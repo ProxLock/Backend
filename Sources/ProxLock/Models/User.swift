@@ -87,7 +87,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     }
     
     final class AccessKey: Model, Authenticatable, @unchecked Sendable {
-        static let schema = "user_api_keys"
+        static let schema = "user_access_keys"
         
         @ID(custom: .id)
         var id: String?
