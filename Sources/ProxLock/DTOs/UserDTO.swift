@@ -7,6 +7,7 @@ struct UserDTO: Content {
     let currentSubscription: SubscriptionPlans?
     let currentRequestUsage: Int?
     let requestLimit: Int?
+    let accessKeyLimit: Int?
     var justRegistered: Bool?
     let accessKeys: [UserAPIKeyDTO]?
     let isAdmin: Bool?

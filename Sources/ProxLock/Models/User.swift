@@ -53,6 +53,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
             requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit,
+            accessKeyLimit: overrideAccessKeyLimit ?? (currentSubscription ?? .free).userApiKeyLimit,
             accessKeys: apiKeys.compactMap({ try? $0.toDTO() }),
             isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
         )
