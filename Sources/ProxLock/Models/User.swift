@@ -50,7 +50,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
             requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit,
-            apiKeys: apiKeys.compactMap({ $0.id }),
+            apiKeys: apiKeys.compactMap({ try? $0.toDTO() }),
             isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
         )
     }
@@ -89,6 +89,9 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         @ID(custom: .id)
         var id: String?
         
+        @Field(key: "name")
+        var name: String
+        
         @Parent(key: "user_id")
         var user: User
         
@@ -96,8 +99,13 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             self.id = "sk_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
         }
         
+        init(name: String) {
+            self.id = "sk_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+            self.name = name
+        }
+        
         func toDTO() throws -> UserAPIKeyDTO {
-            try .init(key: requireID())
+            try .init(name: name, key: requireID())
         }
     }
 }

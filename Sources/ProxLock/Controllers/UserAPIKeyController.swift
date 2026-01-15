@@ -13,6 +13,9 @@ struct UserAPIKeyController: RouteCollection {
     ///
     /// Creates a new ProxLock api key for a user.
     ///
+    /// ## Required Body
+    /// ``UserAPIKeyDTO`` object with a valid id.
+    ///
     /// ## Required Headers
     /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
     ///
@@ -28,8 +31,9 @@ struct UserAPIKeyController: RouteCollection {
         guard allKeys.count+1 <= user.currentSubscription?.userApiKeyLimit ?? SubscriptionPlans.free.userApiKeyLimit else {
             throw Abort(.forbidden, reason: "User API Key Limit Reached.")
         }
+        let dto = try req.content.decode(UserAPIKeyDTO.self)
         
-        let key = User.APIKey()
+        let key = User.APIKey(name: dto.name)
         key.$user.id = try user.requireID()
         
         try await key.save(on: req.db)

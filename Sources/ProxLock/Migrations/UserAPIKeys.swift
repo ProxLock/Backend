@@ -18,4 +18,18 @@ extension User.APIKey: Migratable {
             try await database.schema(User.APIKey.schema).delete()
         }
     }
+    
+    struct AddNameMigration: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(User.APIKey.schema)
+                .field("name", .string)
+                .update()
+        }
+        
+        func revert(on database: any Database) async throws {
+            try await database.schema(User.APIKey.schema)
+                .deleteField("name")
+                .update()
+        }
+    }
 }
