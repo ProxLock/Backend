@@ -26,6 +26,24 @@ struct Authenticator: AsyncBearerAuthenticator {
     }
     
     func authenticate(bearer: BearerAuthorization, for request: Request) async throws {
+        if bearer.token.hasPrefix("sk_") {
+            try await handleAPIKeyAuth(bearer: bearer, for: request)
+            return
+        }
+        
+        try await handleClerkAuth(bearer: bearer, for: request)
+    }
+    
+    private func handleAPIKeyAuth(bearer: BearerAuthorization, for request: Request) async throws {
+        guard let key = try await User.APIKey.find(bearer.token, on: request.db) else {
+            throw Errors.userNotFound
+        }
+        try await key.$user.load(on: request.db)
+        let user = try await key.$user.get(on: request.db)
+        request.auth.login(user)
+    }
+    
+    private func handleClerkAuth(bearer: BearerAuthorization, for request: Request) async throws {
         do {
             let claims = try await Self.verifyClerkToken(bearer.token, on: request)
             
