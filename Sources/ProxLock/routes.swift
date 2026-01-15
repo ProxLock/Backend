@@ -34,6 +34,7 @@ private func registerV1Routes<R: RoutesBuilder>(_ v1: R) throws {
     // Admin Route
     let adminRoute = v1.grouped("admin").grouped(Authenticator())
     try adminRoute.register(collection: UserController())
+    try adminRoute.register(collection: UserAccessKeyController())
     
     // Dashboard Routes
     

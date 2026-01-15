@@ -8,7 +8,7 @@ struct UserAccessKeyController: RouteCollection {
         users.post(use: self.create)
         users.delete(use: self.delete)
         
-        let adminUsers = routes.grouped("admin", ":userID", "user", "api-keys")
+        let adminUsers = routes.grouped(":userID", "user", "api-keys")
         
         adminUsers.get("override-limit", use: self.overrideLimit)
     }
