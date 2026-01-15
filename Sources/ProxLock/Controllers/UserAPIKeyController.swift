@@ -32,6 +32,8 @@ struct UserAPIKeyController: RouteCollection {
         let key = User.APIKey()
         key.$user.id = try user.requireID()
         
+        try await key.save(on: req.db)
+        
         return try key.toDTO()
     }
 
