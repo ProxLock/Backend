@@ -10,7 +10,7 @@ struct UserAccessKeyController: RouteCollection {
         
         let adminUsers = routes.grouped(":userID", "user", "api-keys")
         
-        adminUsers.get("override-limit", use: self.overrideLimit)
+        adminUsers.post("override-limit", use: self.overrideLimit)
     }
 
     /// POST /me/api-keys
