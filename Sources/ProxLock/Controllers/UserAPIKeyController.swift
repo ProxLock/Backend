@@ -21,7 +21,7 @@ struct UserAPIKeyController: RouteCollection {
     ///
     /// - Parameters:
     ///   - req: The HTTP request containing user data in the request body
-    /// - Returns: ``UserDTO`` object containing the created user information
+    /// - Returns: ``UserAPIKeyDTO`` object containing the created API key information
     @Sendable
     func create(req: Request) async throws -> UserAPIKeyDTO {
         let user = try req.auth.require(User.self)
