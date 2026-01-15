@@ -25,6 +25,7 @@ public func configure(_ app: Application) async throws {
     ContentConfiguration.global.use(decoder: jsonDecoder, for: .json)
 
     app.migrations.add(User.migrations)
+    app.migrations.add(User.APIKey.migrations)
     app.migrations.add(Project.migrations)
     app.migrations.add(APIKey.migrations)
     app.migrations.add(DeviceCheckKey.migrations)
