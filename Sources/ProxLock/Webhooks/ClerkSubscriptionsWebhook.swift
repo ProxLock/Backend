@@ -110,8 +110,8 @@ enum SubscriptionPlans: String, Codable {
     var userApiKeyLimit: Int {
         switch self {
         case .free: return 0
-        case .tenThousandRequests: return 5
-        case .twentyFiveThousandRequests: return 1_000_000_000
+        case .tenThousandRequests: return 1
+        case .twentyFiveThousandRequests: return .max // Unlimited
         }
     }
 }
