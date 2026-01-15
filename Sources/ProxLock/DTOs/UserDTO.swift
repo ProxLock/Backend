@@ -14,7 +14,7 @@ struct UserDTO: Content {
 
 struct UserAPIKeyDTO: Content {
     let name: String
-    let key: String
+    let key: String?
 }
 
 struct PaginatedUsersDTO: Content {

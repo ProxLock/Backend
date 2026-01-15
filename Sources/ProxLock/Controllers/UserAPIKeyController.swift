@@ -59,7 +59,11 @@ struct UserAPIKeyController: RouteCollection {
         let user = try req.auth.require(User.self)
         let dto = try req.content.decode(UserAPIKeyDTO.self)
         
-        let key = try await User.APIKey.query(on: req.db).filter(\.$id == dto.key).filter(\.$user.$id == user.requireID()).with(\.$user).first()
+        guard let dtoKey = dto.key else {
+            throw Abort(.badRequest, reason: "Missing API Key.")
+        }
+        
+        let key = try await User.APIKey.query(on: req.db).filter(\.$id == dtoKey).filter(\.$user.$id == user.requireID()).with(\.$user).first()
         
         try await key?.delete(on: req.db)
         
