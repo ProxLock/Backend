@@ -21,7 +21,7 @@ struct UserAPIKeyController: RouteCollection {
     ///
     /// - Parameters:
     ///   - req: The HTTP request containing user data in the request body
-    /// - Returns: ``UserDTO`` object containing the created user information
+    /// - Returns: ``UserAPIKeyDTO`` object containing the created API key information
     @Sendable
     func create(req: Request) async throws -> UserAPIKeyDTO {
         let user = try req.auth.require(User.self)
@@ -55,7 +55,7 @@ struct UserAPIKeyController: RouteCollection {
     /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
     ///
     /// - Parameters:
-    ///   - req: The HTTP request containing the user ID parameter
+    ///   - req: The HTTP request containing the API key to delete in the request body
     /// - Returns: HTTP status code indicating the result of the deletion operation
     @Sendable
     func delete(req: Request) async throws -> HTTPStatus {
