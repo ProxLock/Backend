@@ -3,6 +3,7 @@ import Fluent
 extension User.APIKey: Migratable {
     static let migrations: [any Migration] = [
         CreateMigration(),
+        AddNameMigration()
     ]
     
     struct CreateMigration: AsyncMigration {
