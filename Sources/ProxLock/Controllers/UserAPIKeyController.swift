@@ -30,7 +30,7 @@ struct UserAPIKeyController: RouteCollection {
         }
         
         let key = User.APIKey()
-        key.user.id = try user.requireID()
+        key.$user.id = try user.requireID()
         
         return try key.toDTO()
     }
