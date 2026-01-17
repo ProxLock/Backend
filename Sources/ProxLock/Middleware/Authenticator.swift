@@ -75,6 +75,7 @@ struct Authenticator: AsyncBearerAuthenticator {
     }
     
     private func didImpersonateFromAdmin(for request: Request, adminUserID: String) async throws -> Bool {
+        try validateAdminAccess(for: request, with: adminUserID)
         guard request.url.path.contains("/admin") else {
             return false
         }
