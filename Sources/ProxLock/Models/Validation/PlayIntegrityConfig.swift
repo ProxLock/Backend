@@ -24,6 +24,9 @@ final class PlayIntegrityConfig: Model, @unchecked Sendable {
     @Parent(key: "project_id")
     var project: Project
     
+    @Children(for: \.$playIntegrityConfig)
+    private var apiKeys: [APIKey]
+    
     var configData: GoogleServiceAccountCredentials {
         get throws {
             try GoogleServiceAccountCredentials(fromJsonString: gcloudJson)
