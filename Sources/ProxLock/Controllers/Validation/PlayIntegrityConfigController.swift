@@ -252,6 +252,21 @@ struct PlayIntegrityConfigController: RouteCollection {
         // Assign to user and save
         config.$project.id = try project.requireID()
         try await config.save(on: req.db)
+        
+        // Link to Keys
+        Task {
+            do {
+                try await project.$apiKeys.load(on: req.db)
+                let keys = try await project.$apiKeys.get(on: req.db)
+                
+                for key in keys {
+                    key.$playIntegrityConfig.id = try config.requireID()
+                    try await key.save(on: req.db)
+                }
+            } catch {
+                req.logger.error("Error Linking PlayIntegrityConfig to API Keys: \(error)")
+            }
+        }
 
         return config
     }

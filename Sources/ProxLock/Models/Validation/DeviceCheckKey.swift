@@ -25,6 +25,9 @@ final class DeviceCheckKey: Model, @unchecked Sendable {
     @Parent(key: "project_id")
     var project: Project
     
+    @Children(for: \.$deviceCheckKey)
+    private var apiKeys: [APIKey]
+    
     init() { }
 
     init(id: UUID? = nil, secretKey: String, keyID: String, teamID: String, bypassToken: String = UUID().uuidString) {

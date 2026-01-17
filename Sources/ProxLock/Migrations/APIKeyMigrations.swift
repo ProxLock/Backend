@@ -7,6 +7,8 @@ extension APIKey: Migratable {
         AddWhitelistedUrls(),
         AddRateLimit(),
         AddAllowsWeb(),
+        AddDirectLinkToUser(),
+        AddDirectLinkToDeviceValidation()
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -76,6 +78,36 @@ extension APIKey: Migratable {
         func revert(on database: any Database) async throws {
             try await database.schema(APIKey.schema)
                 .deleteField("allows_web")
+                .update()
+        }
+    }
+    
+    struct AddDirectLinkToUser: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .field("user_id", .uuid, .references(User.schema, "id", onDelete: .cascade))
+                .update()
+        }
+
+        func revert(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .deleteField("user_id")
+                .update()
+        }
+    }
+    
+    struct AddDirectLinkToDeviceValidation: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .field("device_check_id", .uuid, .references(DeviceCheckKey.schema, "id", onDelete: .setNull))
+                .field("play_integrity_id", .uuid, .references(PlayIntegrityConfig.schema, "id", onDelete: .setNull))
+                .update()
+        }
+
+        func revert(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .deleteField("device_check_id")
+                .deleteField("play_integrity_id")
                 .update()
         }
     }
