@@ -41,6 +41,7 @@ struct Authenticator: AsyncBearerAuthenticator {
         try await key.$user.load(on: request.db)
         let user = try await key.$user.get(on: request.db)
         
+        try validateAdminAccess(for: request, with: user.clerkID)
         guard try await !didImpersonateFromAdmin(for: request, adminUserID: user.clerkID) else {
             return
         }
@@ -52,7 +53,7 @@ struct Authenticator: AsyncBearerAuthenticator {
         do {
             let claims = try await Self.verifyClerkToken(bearer.token, on: request)
             
-            try validateAdminAccess(for: request, with: claims)
+            try validateAdminAccess(for: request, with: claims.id)
             // Impersonate user if success with admin route
             guard try await !didImpersonateFromAdmin(for: request, adminUserID: claims.id) else {
                 return
@@ -67,8 +68,8 @@ struct Authenticator: AsyncBearerAuthenticator {
         }
     }
     
-    private func validateAdminAccess(for request: Request, with claims: ClerkClaims) throws {
-        if request.url.path.contains("/admin"), !Constants.adminClerkIDs.contains(claims.id) {
+    private func validateAdminAccess(for request: Request, with id: String) throws {
+        if request.url.path.contains("/admin"), !Constants.adminClerkIDs.contains(id) {
             throw Abort(.unauthorized)
         }
     }
