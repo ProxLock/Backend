@@ -106,6 +106,14 @@ enum SubscriptionPlans: String, Codable {
         case .twentyFiveThousandRequests: return 25_000
         }
     }
+    
+    var userApiKeyLimit: Int {
+        switch self {
+        case .free: return 0
+        case .tenThousandRequests: return 1
+        case .twentyFiveThousandRequests: return -1 // Unlimited
+        }
+    }
 }
 
 // MARK: - Payer

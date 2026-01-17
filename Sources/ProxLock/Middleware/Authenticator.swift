@@ -20,22 +20,42 @@ struct ClerkClaims: JWTPayload {
     }
 }
 
-struct ClerkAuthenticator: AsyncBearerAuthenticator {
+struct Authenticator: AsyncBearerAuthenticator {
     enum Errors: Error {
         case userNotFound
     }
     
     func authenticate(bearer: BearerAuthorization, for request: Request) async throws {
+        if bearer.token.hasPrefix("sk_") {
+            try await handleAPIKeyAuth(bearer: bearer, for: request)
+            return
+        }
+        
+        try await handleClerkAuth(bearer: bearer, for: request)
+    }
+    
+    private func handleAPIKeyAuth(bearer: BearerAuthorization, for request: Request) async throws {
+        guard let key = try await User.AccessKey.find(bearer.token, on: request.db) else {
+            throw Errors.userNotFound
+        }
+        try await key.$user.load(on: request.db)
+        let user = try await key.$user.get(on: request.db)
+        
+        try validateAdminAccess(for: request, with: user.clerkID)
+        guard try await !didImpersonateFromAdmin(for: request, adminUserID: user.clerkID) else {
+            return
+        }
+        
+        request.auth.login(user)
+    }
+    
+    private func handleClerkAuth(bearer: BearerAuthorization, for request: Request) async throws {
         do {
             let claims = try await Self.verifyClerkToken(bearer.token, on: request)
             
-            try validateAdminAccess(for: request, with: claims)
+            try validateAdminAccess(for: request, with: claims.id)
             // Impersonate user if success with admin route
-            if let userID = request.parameters.get("userID"), request.url.path.contains("/admin"), Constants.adminClerkIDs.contains(claims.id) {
-                guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
-                    throw Errors.userNotFound
-                }
-                request.auth.login(user)
+            guard try await !didImpersonateFromAdmin(for: request, adminUserID: claims.id) else {
                 return
             }
             
@@ -48,10 +68,28 @@ struct ClerkAuthenticator: AsyncBearerAuthenticator {
         }
     }
     
-    func validateAdminAccess(for request: Request, with claims: ClerkClaims) throws {
-        if request.url.path.contains("/admin"), !Constants.adminClerkIDs.contains(claims.id) {
+    private func validateAdminAccess(for request: Request, with id: String) throws {
+        if request.url.path.contains("/admin"), !Constants.adminClerkIDs.contains(id) {
             throw Abort(.unauthorized)
         }
+    }
+    
+    private func didImpersonateFromAdmin(for request: Request, adminUserID: String) async throws -> Bool {
+        try validateAdminAccess(for: request, with: adminUserID)
+        guard request.url.path.contains("/admin") else {
+            return false
+        }
+        
+        guard let userID = request.parameters.get("userID") else {
+            return false
+        }
+        
+        guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
+            throw Errors.userNotFound
+        }
+        
+        request.auth.login(user)
+        return true
     }
     
     static func verifyClerkToken(_ token: String, on req: Request) async throws -> ClerkClaims {

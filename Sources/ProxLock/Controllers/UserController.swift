@@ -39,7 +39,7 @@ struct UserController: RouteCollection {
             throw Abort(.unauthorized)
         }
         
-        let claims = try await ClerkAuthenticator.verifyClerkToken(bearer.token, on: req)
+        let claims = try await Authenticator.verifyClerkToken(bearer.token, on: req)
         
         guard !claims.id.isEmpty else {
             throw Abort(.unauthorized)
