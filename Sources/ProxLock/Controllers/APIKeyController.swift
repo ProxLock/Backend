@@ -273,7 +273,7 @@ struct APIKeyController: RouteCollection {
         
         let value = try? req.content.decode(Int.self)
         
-        user.overrideAccessKeyLimit = value
+        user.overrideAPIKeyLimit = value
         try await user.save(on: req.db)
         
         return try await user.toDTO(on: req.db)
