@@ -69,6 +69,14 @@ struct APIKeyController: RouteCollection {
     /// - Returns: ``APIKeySendingDTO`` object containing the created API key information with the user's partial key
     @Sendable
     func create(req: Request) async throws -> APIKeySendingDTO {
+        let user = try req.auth.require(User.self)
+        try await user.$apiKeys.load(on: req.db)
+        let apiKeys = try await user.$apiKeys.get(on: req.db)
+        
+        guard apiKeys.count + 1 >= user.overrideAPIKeyLimit ?? (user.currentSubscription ?? .free).keyLimit else {
+            throw Abort(.paymentRequired, reason: "API Key limit reached. Upgrade your plan to increase this limit.")
+        }
+        
         let keyDTO = try req.content.decode(APIKeyRecievingDTO.self)
         
         guard let apiKey = keyDTO.apiKey else {
@@ -82,8 +90,6 @@ struct APIKeyController: RouteCollection {
         let (userKey, dbKey) = try KeySplitter.split(key: apiKey)
         
         let key = APIKey(name: name, description: keyDTO.description ?? "", partialKey: dbKey, rateLimit: keyDTO.rateLimit, allowsWeb: keyDTO.allowsWeb ?? false, whitelistedUrls: keyDTO.whitelistedUrls ?? [])
-        
-        let user = try req.auth.require(User.self)
         
         guard let projectIDString = req.parameters.get("projectID"),
                 let projectID = UUID(uuidString: projectIDString),

@@ -23,6 +23,12 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "override_access_key_limit")
     var overrideAccessKeyLimit: Int?
     
+    @Field(key: "override_project_limit")
+    var overrideProjectLimit: Int?
+    
+    @Field(key: "override_api_key_limit")
+    var overrideAPIKeyLimit: Int?
+    
     @Children(for: \.$user)
     var usageHistory: [MonthlyUserUsageHistory]
     
@@ -33,7 +39,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     var accessKey: [AccessKey]
   
     @Children(for: \.$user)
-    private var keys: [APIKey]
+    var apiKeys: [APIKey]
 
     init() { }
 
@@ -57,6 +63,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             currentRequestUsage: currentRecord.requestCount,
             requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit,
             accessKeyLimit: overrideAccessKeyLimit ?? (currentSubscription ?? .free).userApiKeyLimit,
+            apiKeyLimit: overrideAPIKeyLimit ?? (currentSubscription ?? .free).keyLimit,
+            projectLimit: overrideProjectLimit ?? (currentSubscription ?? .free).projectLimit,
             accessKeys: apiKeys.compactMap({ try? $0.toDTO() }),
             isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
         )
