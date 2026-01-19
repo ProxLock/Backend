@@ -111,7 +111,23 @@ enum SubscriptionPlans: String, Codable {
         switch self {
         case .free: return 0
         case .tenThousandRequests: return 1
-        case .twentyFiveThousandRequests: return -1 // Unlimited
+        case .twentyFiveThousandRequests: return 5
+        }
+    }
+    
+    var projectLimit: Int {
+        switch self {
+        case .free: return 3
+        case .tenThousandRequests: return 15
+        case .twentyFiveThousandRequests: return 25
+        }
+    }
+    
+    var keyLimit: Int {
+        switch self {
+        case .free: return 1
+        case .tenThousandRequests: return 7
+        case .twentyFiveThousandRequests: return 15
         }
     }
 }
