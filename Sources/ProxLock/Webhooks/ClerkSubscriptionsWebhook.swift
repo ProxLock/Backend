@@ -118,8 +118,8 @@ enum SubscriptionPlans: String, Codable {
     var projectLimit: Int {
         switch self {
         case .free: return 3
-        case .tenThousandRequests: return 15
-        case .twentyFiveThousandRequests: return 25
+        case .tenThousandRequests: return 7
+        case .twentyFiveThousandRequests: return 15
         }
     }
     
