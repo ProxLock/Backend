@@ -96,38 +96,38 @@ private struct Plan: Codable {
 
 enum SubscriptionPlans: String, Codable {
     case free = "free_user"
-    case tenThousandRequests = "10k_requests"
-    case twentyFiveThousandRequests = "25k_requests"
+    case plus = "10k_requests"
+    case pro = "25k_requests"
     
     var requestLimit: Int {
         switch self {
         case .free: return 3000
-        case .tenThousandRequests: return 10_000
-        case .twentyFiveThousandRequests: return 25_000
+        case .plus: return 10_000
+        case .pro: return 25_000
         }
     }
     
     var userApiKeyLimit: Int {
         switch self {
         case .free: return 0
-        case .tenThousandRequests: return 1
-        case .twentyFiveThousandRequests: return 5
+        case .plus: return 1
+        case .pro: return 5
         }
     }
     
     var projectLimit: Int {
         switch self {
         case .free: return 3
-        case .tenThousandRequests: return 7
-        case .twentyFiveThousandRequests: return 15
+        case .plus: return 7
+        case .pro: return 15
         }
     }
     
     var keyLimit: Int {
         switch self {
         case .free: return 1
-        case .tenThousandRequests: return 7
-        case .twentyFiveThousandRequests: return 15
+        case .plus: return 7
+        case .pro: return 15
         }
     }
 }
