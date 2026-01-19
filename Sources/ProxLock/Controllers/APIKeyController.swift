@@ -82,7 +82,7 @@ struct APIKeyController: RouteCollection {
         try await project.$apiKeys.load(on: req.db)
         let apiKeys = try await project.$apiKeys.get(on: req.db)
         
-        guard apiKeys.count + 1 >= user.overrideAPIKeyLimit ?? (user.currentSubscription ?? .free).keyLimit else {
+        guard apiKeys.count + 1 <= user.overrideAPIKeyLimit ?? (user.currentSubscription ?? .free).keyLimit else {
             throw Abort(.paymentRequired, reason: "API Key limit reached for project. Upgrade your plan to increase this limit.")
         }
         

@@ -64,7 +64,7 @@ struct ProjectController: RouteCollection {
         try await user.$projects.load(on: req.db)
         let projects = try await user.$projects.get(on: req.db)
         
-        guard projects.count + 1 >= user.overrideProjectLimit ?? (user.currentSubscription ?? .free).projectLimit else {
+        guard projects.count + 1 <= user.overrideProjectLimit ?? (user.currentSubscription ?? .free).projectLimit else {
             throw Abort(.paymentRequired, reason: "Project limit reached. Upgrade your plan to increase this limit.")
         }
         
