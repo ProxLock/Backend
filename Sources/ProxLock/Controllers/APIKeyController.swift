@@ -12,6 +12,9 @@ struct APIKeyController: RouteCollection {
             key.put(use: self.update)
             key.delete(use: self.delete)
         }
+        
+        let adminEndpoint = routes.grouped(":userID", "keys")
+        adminEndpoint.post("override-limit", use: self.overrideLimit)
     }
 
     /// GET /me/projects/:projectID/keys
@@ -69,6 +72,20 @@ struct APIKeyController: RouteCollection {
     /// - Returns: ``APIKeySendingDTO`` object containing the created API key information with the user's partial key
     @Sendable
     func create(req: Request) async throws -> APIKeySendingDTO {
+        let user = try req.auth.require(User.self)
+        
+        guard let projectIDString = req.parameters.get("projectID"),
+                let projectID = UUID(uuidString: projectIDString),
+              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+            throw Abort(.notFound)
+        }
+        try await project.$apiKeys.load(on: req.db)
+        let apiKeys = try await project.$apiKeys.get(on: req.db)
+        
+        guard apiKeys.count + 1 <= (user.overrideAPIKeyLimit ?? (user.currentSubscription ?? .free).keyLimit) || (user.overrideAPIKeyLimit ?? (user.currentSubscription ?? .free).keyLimit) <= -1 else {
+            throw Abort(.paymentRequired, reason: "API Key limit reached for project. Upgrade your plan to increase this limit.")
+        }
+        
         let keyDTO = try req.content.decode(APIKeyRecievingDTO.self)
         
         guard let apiKey = keyDTO.apiKey else {
@@ -82,14 +99,6 @@ struct APIKeyController: RouteCollection {
         let (userKey, dbKey) = try KeySplitter.split(key: apiKey)
         
         let key = APIKey(name: name, description: keyDTO.description ?? "", partialKey: dbKey, rateLimit: keyDTO.rateLimit, allowsWeb: keyDTO.allowsWeb ?? false, whitelistedUrls: keyDTO.whitelistedUrls ?? [])
-        
-        let user = try req.auth.require(User.self)
-        
-        guard let projectIDString = req.parameters.get("projectID"),
-                let projectID = UUID(uuidString: projectIDString),
-              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
-            throw Abort(.notFound)
-        }
 
         key.$project.id = try project.requireID()
         key.$user.id = try user.requireID()
@@ -242,5 +251,31 @@ struct APIKeyController: RouteCollection {
 
         try await key.delete(on: req.db)
         return .accepted
+    }
+    
+    // MARK: - Admin Functions
+    /// POST /admin/:userID/keys/override-limit
+    ///
+    /// Sets the key per project override limit for a user.
+    ///
+    /// ## Body
+    /// Send an integer to set the limit or null to remove the limit.
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// - Parameters:
+    ///   - req: The HTTP request containing user data in the request body
+    /// - Returns: ``UserDTO`` object containing the created user information
+    @Sendable
+    func overrideLimit(req: Request) async throws -> UserDTO {
+        let user = try req.auth.require(User.self)
+        
+        let value = try? req.content.decode(Int.self)
+        
+        user.overrideAPIKeyLimit = value
+        try await user.save(on: req.db)
+        
+        return try await user.toDTO(on: req.db)
     }
 }

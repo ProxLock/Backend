@@ -7,6 +7,7 @@ extension User: Migratable {
         AddBillToUserMigration(),
         AddOverrideMonthlyRequestLimit(),
         AddOverrideAccessKeyLimit(),
+        AddOverrideProjectAndAPIKeyLimits(),
     ]
     
     struct CreateUserMigration: AsyncMigration {
@@ -76,6 +77,22 @@ extension User: Migratable {
         func revert(on database: any Database) async throws {
             try await database.schema(User.schema)
                 .deleteField("override_access_key_limit")
+                .update()
+        }
+    }
+    
+    struct AddOverrideProjectAndAPIKeyLimits: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(User.schema)
+                .field("override_project_limit", .int)
+                .field("override_api_key_limit", .int)
+                .update()
+        }
+        
+        func revert(on database: any Database) async throws {
+            try await database.schema(User.schema)
+                .deleteField("override_project_limit")
+                .deleteField("override_api_key_limit")
                 .update()
         }
     }

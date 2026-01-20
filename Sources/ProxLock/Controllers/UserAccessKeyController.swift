@@ -37,7 +37,7 @@ struct UserAccessKeyController: RouteCollection {
         let maxUsage = user.overrideAccessKeyLimit ?? (user.currentSubscription?.userApiKeyLimit ?? SubscriptionPlans.free.userApiKeyLimit)
         
         guard allKeys.count+1 <= maxUsage || maxUsage <= -1 else {
-            throw Abort(.forbidden, reason: "User Access Key Limit Reached.")
+            throw Abort(.paymentRequired, reason: "User Access limit reached. Upgrade your plan to increase this limit.")
         }
         let dto = try req.content.decode(UserAPIKeyDTO.self)
         guard let name = dto.name else {
