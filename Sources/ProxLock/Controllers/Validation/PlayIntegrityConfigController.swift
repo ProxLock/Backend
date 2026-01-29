@@ -279,10 +279,10 @@ struct PlayIntegrityConfigController: RouteCollection {
         _ dto: PlayIntegrityConfigRecievingDTO, on project: Project, from req: Request
     ) async throws -> PlayIntegrityConfig {
         guard let gcloudJson = dto.gcloudJson else {
-            throw Abort(.internalServerError, reason: "Missing required 'gcloudJson' field")
+            throw Abort(.badRequest, reason: "Missing required 'gcloudJson' field")
         }
         guard let packageName = dto.packageName else {
-            throw Abort(.internalServerError, reason: "Missing required 'packageName' field")
+            throw Abort(.badRequest, reason: "Missing required 'packageName' field")
         }
         
         try await project.$deviceCheckKey.load(on: req.db)
