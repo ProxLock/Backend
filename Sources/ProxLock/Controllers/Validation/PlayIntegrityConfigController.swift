@@ -296,6 +296,7 @@ struct PlayIntegrityConfigController: RouteCollection {
         if let foundConfig = (try? await project.$playIntegrityConfig.get(on: req.db)) {
             foundConfig.gcloudJson = try gcloudJson.asString()
             foundConfig.bypassToken = deviceCheckKey?.bypassToken ?? UUID().uuidString
+            foundConfig.allowedAppRecognitionVerdicts = dto.allowedAppRecognitionVerdicts ?? [.playRecognized]
             config = foundConfig
         } else {
             config = PlayIntegrityConfig(
