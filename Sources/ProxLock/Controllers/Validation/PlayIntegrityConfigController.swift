@@ -86,20 +86,24 @@ struct PlayIntegrityConfigController: RouteCollection {
         return try config.toDTO()
     }
 
-    /// PATCh /me/projects/:projectID/play-integrity
+    /// PATCH /me/projects/:projectID/play-integrity
     ///
-    /// Links an existing PlayIntegrity configuration to a different project.
+    /// Partially updates the Play Integrity configuration for a project.
     ///
     /// ## Required Headers
     /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
     ///
     /// ## Request Body
-    /// Expects a ``PlayIntegrityConfigLinkRecievingDTO`` object containing:
-    /// - projectID: The project ID to copy the PlayIntegrity configuration from (required)
+    /// Expects a ``PlayIntegrityConfigRecievingDTO`` object. All fields are optional:
+    /// - packageName: The Android package name to associate with this configuration.
+    /// - allowedAppRecognitionVerdicts: The list of allowed app recognition verdicts.
+    ///
+    /// Any fields provided in the body will overwrite the corresponding fields on the existing
+    /// Play Integrity configuration for the specified project.
     ///
     /// - Parameters:
-    ///   - req: The HTTP request containing the project ID parameter and link data in the request body
-    /// - Returns: ``PlayIntegrityConfigSendingDTO`` object containing the PlayIntegrity configuration information
+    ///   - req: The HTTP request containing the project ID parameter and partial config data in the request body
+    /// - Returns: ``PlayIntegrityConfigSendingDTO`` object containing the updated Play Integrity configuration information
     @Sendable
     func update(req: Request) async throws -> PlayIntegrityConfigSendingDTO {
         // Get the key
