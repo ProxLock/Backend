@@ -12,6 +12,7 @@ struct PlayIntegrityConfigController: RouteCollection {
         let keys = routes.grouped("me", "projects", ":projectID", "play-integrity")
 
         keys.post(use: self.create)
+        keys.patch(use: self.update)
         keys.put(use: self.link)
         keys.get(use: self.get)
         keys.delete(use: self.delete)
@@ -85,6 +86,59 @@ struct PlayIntegrityConfigController: RouteCollection {
         return try config.toDTO()
     }
 
+    /// PATCH /me/projects/:projectID/play-integrity
+    ///
+    /// Partially updates the Play Integrity configuration for a project.
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// ## Request Body
+    /// Expects a ``PlayIntegrityConfigRecievingDTO`` object. All fields are optional:
+    /// - packageName: The Android package name to associate with this configuration.
+    /// - allowedAppRecognitionVerdicts: The list of allowed app recognition verdicts.
+    ///
+    /// Any fields provided in the body will overwrite the corresponding fields on the existing
+    /// Play Integrity configuration for the specified project.
+    ///
+    /// - Parameters:
+    ///   - req: The HTTP request containing the project ID parameter and partial config data in the request body
+    /// - Returns: ``PlayIntegrityConfigSendingDTO`` object containing the updated Play Integrity configuration information
+    @Sendable
+    func update(req: Request) async throws -> PlayIntegrityConfigSendingDTO {
+        // Get the key
+        let user = try req.auth.require(User.self)
+        let dto = try req.content.decode(PlayIntegrityConfigRecievingDTO.self)
+
+        guard let project = try await Project.find(req.parameters.require("projectID"), on: req.db) else {
+            throw Abort(.notFound)
+        }
+
+        try await project.$user.load(on: req.db)
+        guard try await project.$user.get(on: req.db).requireID() == user.requireID() else {
+            throw Abort(.notFound)
+        }
+
+        try await project.$playIntegrityConfig.load(on: req.db)
+        let existingConfig = try await project.$playIntegrityConfig.get(on: req.db)
+
+        guard let existingConfig else {
+            throw Abort(.notFound)
+        }
+
+        if let packageName = dto.packageName {
+            existingConfig.packageName = packageName
+        }
+        
+        if let allowedAppRecognitionVerdicts = dto.allowedAppRecognitionVerdicts {
+            existingConfig.allowedAppRecognitionVerdicts = allowedAppRecognitionVerdicts
+        }
+        
+        try await existingConfig.save(on: req.db)
+
+        return try existingConfig.toDTO()
+    }
+
     /// PUT /me/projects/:projectID/play-integrity
     ///
     /// Links an existing PlayIntegrity configuration to a different project.
@@ -133,7 +187,7 @@ struct PlayIntegrityConfigController: RouteCollection {
             throw Abort(.notFound)
         }
 
-        let config = try await setConfig(PlayIntegrityConfigRecievingDTO(packageName: existingConfig.packageName, gcloudJson: existingConfig.configData), on: project, from: req)
+        let config = try await setConfig(PlayIntegrityConfigRecievingDTO(packageName: existingConfig.packageName, gcloudJson: existingConfig.configData, allowedAppRecognitionVerdicts: existingConfig.allowedAppRecognitionVerdicts), on: project, from: req)
 
         return try config.toDTO()
     }
@@ -228,7 +282,12 @@ struct PlayIntegrityConfigController: RouteCollection {
     func setConfig(
         _ dto: PlayIntegrityConfigRecievingDTO, on project: Project, from req: Request
     ) async throws -> PlayIntegrityConfig {
-        let gcloudJson = dto.gcloudJson
+        guard let gcloudJson = dto.gcloudJson else {
+            throw Abort(.badRequest, reason: "Missing required 'gcloudJson' field")
+        }
+        guard let packageName = dto.packageName else {
+            throw Abort(.badRequest, reason: "Missing required 'packageName' field")
+        }
         
         try await project.$deviceCheckKey.load(on: req.db)
         try await project.$playIntegrityConfig.load(on: req.db)
@@ -241,12 +300,15 @@ struct PlayIntegrityConfigController: RouteCollection {
         if let foundConfig = (try? await project.$playIntegrityConfig.get(on: req.db)) {
             foundConfig.gcloudJson = try gcloudJson.asString()
             foundConfig.bypassToken = deviceCheckKey?.bypassToken ?? UUID().uuidString
+            foundConfig.allowedAppRecognitionVerdicts = dto.allowedAppRecognitionVerdicts ?? [.playRecognized]
             config = foundConfig
         } else {
             config = PlayIntegrityConfig(
-                packageName: dto.packageName,
+                packageName: packageName,
                 gcloudJson: try gcloudJson.asString(),
-                bypassToken: deviceCheckKey?.bypassToken ?? UUID().uuidString)
+                bypassToken: deviceCheckKey?.bypassToken ?? UUID().uuidString,
+                allowedAppRecognitionVerdicts: dto.allowedAppRecognitionVerdicts ?? [.playRecognized]
+            )
         }
 
         // Assign to user and save

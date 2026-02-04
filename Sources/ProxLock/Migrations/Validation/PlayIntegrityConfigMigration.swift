@@ -2,7 +2,8 @@ import Fluent
 
 extension PlayIntegrityConfig: Migratable {
     static let migrations: [any Migration] = [
-        CreateMigration()
+        CreateMigration(),
+        AddDeviceValidationModeMigration(),
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -18,6 +19,20 @@ extension PlayIntegrityConfig: Migratable {
 
         func revert(on database: any Database) async throws {
             try await database.schema(PlayIntegrityConfig.schema).delete()
+        }
+    }
+    
+    struct AddDeviceValidationModeMigration: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(PlayIntegrityConfig.schema)
+                .field("allowed_app_recognition_verdicts", .array(of: .string))
+                .update()
+        }
+        
+        func revert(on database: any Database) async throws {
+            try await database.schema(PlayIntegrityConfig.schema)
+                .deleteField("allowed_app_recognition_verdicts")
+                .update()
         }
     }
 }

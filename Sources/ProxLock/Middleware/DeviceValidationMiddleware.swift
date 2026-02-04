@@ -105,7 +105,8 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
             }
         }.tokenPayloadExternal
         
-        guard response.deviceIntegrity.deviceRecognitionVerdict?.contains(.meetsDeviceIntegrity) == true && response.appIntegrity.appRecognitionVerdict == .playRecognized else {
+        // See Android Docs https://developer.android.com/google/play/integrity/verdicts#application-integrity-field
+        guard response.deviceIntegrity.deviceRecognitionVerdict?.contains(.meetsDeviceIntegrity) == true && integrityConfig.allowedAppRecognitionVerdicts.contains(response.appIntegrity.appRecognitionVerdict) else {
             throw Abort(.forbidden, reason: "Invalid Play Integrity")
         }
         
@@ -193,7 +194,7 @@ private struct PlayIntegrityPayload: Content, GoogleCloudModel {
     }
 }
 
-private struct PlayIntegrityResponse: Content, GoogleCloudModel {
+struct PlayIntegrityResponse: Content, GoogleCloudModel {
     let tokenPayloadExternal: Response
     
     struct Response: Codable {
@@ -208,6 +209,7 @@ private struct PlayIntegrityResponse: Content, GoogleCloudModel {
     struct AccountDetails: Codable {
         let appLicensingVerdict: Verdict
         
+        /// See Android Docs https://developer.android.com/google/play/integrity/verdicts#application-integrity-field
         enum Verdict: String, Codable {
             case licensed = "LICENSED"
             case unlicensed = "UNLICENSED"
