@@ -62,11 +62,11 @@ struct RequestProxyController: RouteCollection {
         }
         
         guard !(dbKey.whitelistedUrls ?? []).isEmpty else {
-            throw Abort(.forbidden, reason: "No destinations have been whitelisted for this API key")
+            throw Abort(.forbidden, reason: "No destinations have been whitelisted for this API key. Please configure whitelisted destinations in your API key settings.")
         }
         
         guard !(dbKey.whitelistedHeaders ?? []).isEmpty else {
-            throw Abort(.forbidden, reason: "No headers have been whitelisted for this API key")
+            throw Abort(.forbidden, reason: "No headers have been whitelisted for this API key. Please configure whitelisted headers in your API key settings.")
         }
         
         // Get User
