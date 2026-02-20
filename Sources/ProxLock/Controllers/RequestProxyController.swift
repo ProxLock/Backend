@@ -61,6 +61,14 @@ struct RequestProxyController: RouteCollection {
             throw Abort(.badRequest, reason: "Key was not found")
         }
         
+        guard !(dbKey.whitelistedUrls ?? []).isEmpty else {
+            throw Abort(.forbidden, reason: "No destinations have been whitelisted for this API key")
+        }
+        
+        guard !(dbKey.whitelistedHeaders ?? []).isEmpty else {
+            throw Abort(.forbidden, reason: "No headers have been whitelisted for this API key")
+        }
+        
         // Get User
         let user = try await apiKeyDataLinkingMigrationController.getUser(forAPIKey: dbKey, on: req)
         
