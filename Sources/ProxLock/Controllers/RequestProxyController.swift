@@ -94,7 +94,7 @@ struct RequestProxyController: RouteCollection {
         }
         let userPartialKey = String(partialKey.value[userPartialKeyRange])
         let completeKey = try KeySplitter.reconstruct(serverShareB64: dbKey.partialKey, clientShareB64: userPartialKey)
-        for header in headers where header.value.contains(ProxyHeaderKeys.partialKeyIdentifier) {
+        for header in headers where (dbKey.whitelistedHeaders ?? []).contains(header.name) {
             headers.replaceOrAdd(name: header.name, value: header.value.replacingOccurrences(of: "\(ProxyHeaderKeys.partialKeyIdentifier)\(userPartialKey)%", with: completeKey))
         }
         

@@ -98,7 +98,7 @@ struct APIKeyController: RouteCollection {
         
         let (userKey, dbKey) = try KeySplitter.split(key: apiKey)
         
-        let key = APIKey(name: name, description: keyDTO.description ?? "", partialKey: dbKey, rateLimit: keyDTO.rateLimit, allowsWeb: keyDTO.allowsWeb ?? false, whitelistedUrls: keyDTO.whitelistedUrls ?? [])
+        let key = APIKey(name: name, description: keyDTO.description ?? "", partialKey: dbKey, rateLimit: keyDTO.rateLimit, allowsWeb: keyDTO.allowsWeb ?? false, whitelistedUrls: keyDTO.whitelistedUrls ?? [], whitelistedHeaders: keyDTO.whitelistedHeaders ?? [])
 
         key.$project.id = try project.requireID()
         key.$user.id = try user.requireID()
@@ -164,6 +164,10 @@ struct APIKeyController: RouteCollection {
         
         if let whitelistedUrls = keyDTO.whitelistedUrls {
             key.whitelistedUrls = whitelistedUrls
+        }
+        
+        if let whitelistedHeaders = keyDTO.whitelistedHeaders {
+            key.whitelistedHeaders = whitelistedHeaders
         }
         
         if let rateLimit = keyDTO.rateLimit {
