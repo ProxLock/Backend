@@ -148,7 +148,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             }.joined()
         }
         
-        static func transitionKey<DB: Database>(oldKey: AccessKey, on db: DB) async throws {
+        static func transitionKey(oldKey: AccessKey, on db: any Database) async throws {
             try await oldKey.$user.load(on: db)
             let user = try await oldKey.$user.get(on: db)
             
