@@ -75,11 +75,7 @@ struct UserAccessKeyController: RouteCollection {
         let user = try req.auth.require(User.self)
         let dto = try req.content.decode(UserAPIKeyDTO.self)
         
-        guard let dtoKey = dto.key else {
-            throw Abort(.badRequest, reason: "Missing API Key.")
-        }
-        
-        let key = try await User.AccessKey.query(on: req.db).filter(\.$id == dtoKey).filter(\.$user.$id == user.requireID()).with(\.$user).first()
+        let key = try await User.AccessKey.query(on: req.db).filter(\.$id == dto.id).filter(\.$user.$id == user.requireID()).with(\.$user).first()
         
         try await key?.delete(on: req.db)
         
