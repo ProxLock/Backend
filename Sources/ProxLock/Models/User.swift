@@ -126,7 +126,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         init(id: UUID = UUID(), name: String, key: String) throws {
             self.id = id.uuidString
             self.keyHash = try Self.generateHash(from: key)
-            self.displayPrefix = String(key.prefix(6))
+            self.displayPrefix = String(key.prefix(12))
             self.name = name
         }
         
