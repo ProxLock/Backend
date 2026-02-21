@@ -1,6 +1,11 @@
 import Fluent
 import Vapor
 import struct Foundation.UUID
+#if canImport(Security)
+import Security
+#else
+import Crypto
+#endif
 
 /// Property wrappers interact poorly with `Sendable` checking, causing a warning for the `@ID` property
 /// It is recommended you write your model with sendability checking on and then suppress the warning
@@ -107,20 +112,52 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         @Field(key: "name")
         var name: String
         
+        @Field(key: "display_prefix")
+        var displayPrefix: String?
+        
+        @Field(key: "key_hash")
+        var keyHash: String?
+        
         @Parent(key: "user_id")
         var user: User
         
-        init() {
-            self.id = "sk_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
-        }
+        init() {}
         
-        init(name: String) {
-            self.id = "sk_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+        init(id: UUID = UUID(), name: String, key: String) throws {
+            self.id = id.uuidString
+            self.keyHash = try Self.generateHash(from: key)
+            self.displayPrefix = String(key.prefix(6))
             self.name = name
         }
         
         func toDTO() throws -> UserAPIKeyDTO {
             try .init(name: name, key: requireID())
+        }
+        
+        static func generateHash(from key: String) throws -> String {
+            guard let data = key.data(using: .utf8) else {
+                throw CryptoError.unwrapFailure
+            }
+            
+            // Compute the SHA256 hash
+            let hashed = SHA256.hash(data: data)
+            
+            // Convert the hash to a hexadecimal string
+            return hashed.compactMap { byte in
+                String(format: "%02hhx", byte)
+            }.joined()
+        }
+        
+        static func transitionKey<DB: Database>(oldKey: AccessKey, on db: DB) async throws {
+            try await oldKey.$user.load(on: db)
+            let user = try await oldKey.$user.get(on: db)
+            
+            let newKey = try AccessKey(name: oldKey.name, key: oldKey.requireID())
+            
+            newKey.$user.id = try user.requireID()
+            
+            try await oldKey.delete(on: db)
+            try await newKey.save(on: db)
         }
     }
 }

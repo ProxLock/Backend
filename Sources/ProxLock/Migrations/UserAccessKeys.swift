@@ -3,7 +3,8 @@ import Fluent
 extension User.AccessKey: Migratable {
     static let migrations: [any Migration] = [
         CreateMigration(),
-        AddNameMigration()
+        AddNameMigration(),
+        AddKeySecuritiesMigration()
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -30,6 +31,22 @@ extension User.AccessKey: Migratable {
         func revert(on database: any Database) async throws {
             try await database.schema(User.AccessKey.schema)
                 .deleteField("name")
+                .update()
+        }
+    }
+    
+    struct AddKeySecuritiesMigration: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(User.AccessKey.schema)
+                .field("key_hash", .string)
+                .field("display_prefix", .string)
+                .update()
+        }
+        
+        func revert(on database: any Database) async throws {
+            try await database.schema(User.AccessKey.schema)
+                .deleteField("key_hash")
+                .deleteField("display_prefix")
                 .update()
         }
     }

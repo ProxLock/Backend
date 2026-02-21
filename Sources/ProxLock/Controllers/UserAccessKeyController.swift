@@ -44,12 +44,14 @@ struct UserAccessKeyController: RouteCollection {
             throw Abort(.badRequest, reason: "Name is required.")
         }
         
-        let key = User.AccessKey(name: name)
-        key.$user.id = try user.requireID()
+        let secretKey = "sk_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
         
-        try await key.save(on: req.db)
+        let dbKey = try User.AccessKey(name: name, key: secretKey)
+        dbKey.$user.id = try user.requireID()
         
-        return try key.toDTO()
+        try await dbKey.save(on: req.db)
+        
+        return try dbKey.toDTO()
     }
 
     /// DELETE /me/api-keys
