@@ -16,7 +16,7 @@ struct UserDTO: Content {
 }
 
 struct UserAPIKeyDTO: Content {
-    let id: String
+    let id: String?
     let name: String?
     var key: String?
     let displayPrefix: String?
