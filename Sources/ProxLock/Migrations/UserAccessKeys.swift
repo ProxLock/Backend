@@ -40,6 +40,7 @@ extension User.AccessKey: Migratable {
             try await database.schema(User.AccessKey.schema)
                 .field("key_hash", .string)
                 .field("display_prefix", .string)
+                .unique(on: "key_hash")
                 .update()
         }
         
