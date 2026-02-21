@@ -51,7 +51,10 @@ struct UserAccessKeyController: RouteCollection {
         
         try await dbKey.save(on: req.db)
         
-        return try dbKey.toDTO()
+        var returnDto = try dbKey.toDTO()
+        returnDto.key = secretKey
+        
+        return returnDto
     }
 
     /// DELETE /me/api-keys

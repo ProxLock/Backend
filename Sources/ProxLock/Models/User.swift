@@ -131,7 +131,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         }
         
         func toDTO() throws -> UserAPIKeyDTO {
-            try .init(name: name, key: requireID())
+            .init(name: name, key: nil, displayPrefix: displayPrefix)
         }
         
         static func generateHash(from key: String) throws -> String {
