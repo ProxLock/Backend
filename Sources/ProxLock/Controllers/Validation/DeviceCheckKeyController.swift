@@ -15,7 +15,7 @@ struct DeviceCheckKeyController: RouteCollection {
         keys.get(use: self.get)
         keys.delete(use: self.delete)
         
-        let adminEndpoint = routes.grouped(":userID", "projects", "device-check")
+        let adminEndpoint = routes.grouped(":userID", "projects", ":projectID", "device-check")
         adminEndpoint.post(use: self.create)
         adminEndpoint.put(use: self.link)
         adminEndpoint.get(use: self.get)
