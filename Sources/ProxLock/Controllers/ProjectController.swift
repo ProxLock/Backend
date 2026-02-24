@@ -14,6 +14,13 @@ struct ProjectController: RouteCollection {
         }
         
         let adminEndpoint = routes.grouped(":userID", "projects")
+        adminEndpoint.get(use: self.index)
+        adminEndpoint.post(use: self.create)
+        adminEndpoint.group(":projectID") { project in
+            project.get(use: self.get)
+            project.put(use: self.update)
+            project.delete(use: self.delete)
+        }
         adminEndpoint.post("override-limit", use: self.overrideLimit)
     }
 
