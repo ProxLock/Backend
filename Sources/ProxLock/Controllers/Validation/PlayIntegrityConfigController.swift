@@ -16,6 +16,13 @@ struct PlayIntegrityConfigController: RouteCollection {
         keys.put(use: self.link)
         keys.get(use: self.get)
         keys.delete(use: self.delete)
+        
+        let adminEndpoint = routes.grouped(":userID", "projects", "play-integrity")
+        adminEndpoint.post(use: self.create)
+        adminEndpoint.patch(use: self.update)
+        adminEndpoint.put(use: self.link)
+        adminEndpoint.get(use: self.get)
+        adminEndpoint.delete(use: self.delete)
     }
 
     /// GET /me/play-integrity
