@@ -50,6 +50,13 @@ struct RequestProxyController: RouteCollection {
             throw Abort(.badRequest, reason: ProxyError.destinationMissing.localizedDescription)
         }
         
+        guard let destinationHost = destinationUrl.host(),
+                !Constants.blacklistedProxyDestinations.contains(destinationHost),
+              !Constants.blacklistedProxyDestinations.contains(destinationString.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
+        else {
+            throw Abort(.forbidden, reason: "Proxying to this destination is not permitted")
+        }
+        
         headers.remove(name: ProxyHeaderKeys.destination)
         headers.remove(name: ProxyHeaderKeys.httpMethod)
         headers.remove(name: ProxyHeaderKeys.associationId)

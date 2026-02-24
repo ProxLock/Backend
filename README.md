@@ -104,6 +104,7 @@ Before you begin, ensure you have the following installed:
 | `DATABASE_PASSWORD` | Database password | Yes | - |
 | `CLERK_WEBHOOK_SECRET` | Clerk webhook secret for authentication | Yes | - |
 | `CLERK_ADMIN_IDS` | The Clerk User IDs denoting administrators | no | - |
+| `BLACKLISTED_PROXY_DESTINATIONS` | Hosts that will always be rejected by /proxy | no | - |
 
 ## Building and Running
 
