@@ -44,12 +44,17 @@ struct UserAccessKeyController: RouteCollection {
             throw Abort(.badRequest, reason: "Name is required.")
         }
         
-        let key = User.AccessKey(name: name)
-        key.$user.id = try user.requireID()
+        let secretKey = "sk_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
         
-        try await key.save(on: req.db)
+        let dbKey = try User.AccessKey(name: name, key: secretKey)
+        dbKey.$user.id = try user.requireID()
         
-        return try key.toDTO()
+        try await dbKey.save(on: req.db)
+        
+        var returnDto = try dbKey.toDTO()
+        returnDto.key = secretKey
+        
+        return returnDto
     }
 
     /// DELETE /me/api-keys
@@ -70,11 +75,11 @@ struct UserAccessKeyController: RouteCollection {
         let user = try req.auth.require(User.self)
         let dto = try req.content.decode(UserAPIKeyDTO.self)
         
-        guard let dtoKey = dto.key else {
-            throw Abort(.badRequest, reason: "Missing API Key.")
+        guard let dtoId = dto.id else {
+            throw Abort(.badRequest, reason: "Missing Access Key ID.")
         }
         
-        let key = try await User.AccessKey.query(on: req.db).filter(\.$id == dtoKey).filter(\.$user.$id == user.requireID()).with(\.$user).first()
+        let key = try await User.AccessKey.query(on: req.db).filter(\.$id == dtoId).filter(\.$user.$id == user.requireID()).with(\.$user).first()
         
         try await key?.delete(on: req.db)
         

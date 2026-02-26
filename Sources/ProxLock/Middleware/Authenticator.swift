@@ -34,10 +34,27 @@ struct Authenticator: AsyncBearerAuthenticator {
         try await handleClerkAuth(bearer: bearer, for: request)
     }
     
-    private func handleAPIKeyAuth(bearer: BearerAuthorization, for request: Request) async throws {
+    private func getAPIKey(bearer: BearerAuthorization, for request: Request) async throws -> User.AccessKey? {
+        // Find the key via hash if possible
+        if let key = try await User.AccessKey.query(on: request.db).filter(\.$keyHash == User.AccessKey.generateHash(from: bearer.token)).first() {
+            return key
+        }
+        
+        // Transition Key if found in old system
         guard let key = try await User.AccessKey.find(bearer.token, on: request.db) else {
+            return nil
+        }
+        try await User.AccessKey.transitionKey(oldKey: key, on: request.db)
+        
+        // Find transitioned key via calling the function again
+        return try await getAPIKey(bearer: bearer, for: request)
+    }
+    
+    private func handleAPIKeyAuth(bearer: BearerAuthorization, for request: Request) async throws {
+        guard let key = try await getAPIKey(bearer: bearer, for: request) else {
             throw Errors.userNotFound
         }
+        
         try await key.$user.load(on: request.db)
         let user = try await key.$user.get(on: request.db)
         
