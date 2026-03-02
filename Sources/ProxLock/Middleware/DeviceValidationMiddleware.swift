@@ -134,18 +134,27 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
         
         let deviceCheckEventLoopFuture = deviceCheckMiddleware.respond(to: request, chainingTo: next)
         
-        let response = try await withCheckedThrowingContinuation { continuation in
-            deviceCheckEventLoopFuture.whenComplete { result in
-                switch result {
-                case .success(let value):
-                    continuation.resume(returning: value)
-                case .failure(let error):
-                    continuation.resume(throwing: error)
+        do {
+            let response = try await withCheckedThrowingContinuation { continuation in
+                deviceCheckEventLoopFuture.whenComplete { result in
+                    switch result {
+                    case .success(let value):
+                        continuation.resume(returning: value)
+                    case .failure(let error):
+                        continuation.resume(throwing: error)
+                    }
                 }
             }
+            
+            return response
+        } catch let error as Abort {
+            guard error.status != .unauthorized else {
+                throw Abort(.unauthorized, reason: "If you are seeing this message, it is because there is an issue with DeviceCheck. Please check that your Team ID and Key ID are correct and that your key from Apple is provisioned correctly.")
+            }
+            throw Abort(error.status, reason: "\(error.reason)")
+        } catch {
+            throw error
         }
-        
-        return response
     }
     
     private func getDBKey(from request: Request) async throws -> APIKey {
