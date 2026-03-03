@@ -20,6 +20,18 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "override_monthly_request_limit")
     var overrideMonthlyRequestLimit: Int?
     
+    var monthlyRequestLimit: Int {
+        guard let overrideMonthlyRequestLimit else {
+            return (currentSubscription ?? .free).requestLimit
+        }
+        
+        guard overrideMonthlyRequestLimit >= 0 else {
+            return overrideMonthlyRequestLimit
+        }
+        
+        return max(overrideMonthlyRequestLimit, (currentSubscription ?? .free).requestLimit)
+    }
+    
     @Field(key: "override_access_key_limit")
     var overrideAccessKeyLimit: Int?
     
@@ -61,7 +73,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             projects: projectsDTOs,
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
-            requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit,
+            requestLimit: monthlyRequestLimit,
             accessKeyLimit: overrideAccessKeyLimit ?? (currentSubscription ?? .free).userApiKeyLimit,
             apiKeyLimit: overrideAPIKeyLimit ?? (currentSubscription ?? .free).keyLimit,
             projectLimit: overrideProjectLimit ?? (currentSubscription ?? .free).projectLimit,
