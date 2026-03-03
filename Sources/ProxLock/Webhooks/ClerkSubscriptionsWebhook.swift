@@ -101,7 +101,7 @@ enum SubscriptionPlans: String, Codable {
     
     var requestLimit: Int {
         switch self {
-        case .free: return 3000
+        case .free: return 1000
         case .plus: return 10_000
         case .pro: return 25_000
         }
