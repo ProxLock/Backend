@@ -14,6 +14,9 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "clerk_id")
     var clerkID: String
     
+    @Field(key: "has_accepted_tos")
+    var hasAcceptedTOS: Bool
+    
     @OptionalEnum(key: "current_subscription")
     var currentSubscription: SubscriptionPlans?
     
@@ -78,7 +81,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             apiKeyLimit: overrideAPIKeyLimit ?? (currentSubscription ?? .free).keyLimit,
             projectLimit: overrideProjectLimit ?? (currentSubscription ?? .free).projectLimit,
             accessKeys: apiKeys.compactMap({ try? $0.toDTO() }),
-            isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
+            isAdmin: Constants.adminClerkIDs.contains(self.clerkID),
+            hasAcceptedTOS: hasAcceptedTOS
         )
     }
     

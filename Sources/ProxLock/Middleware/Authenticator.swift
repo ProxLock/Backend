@@ -26,6 +26,22 @@ struct Authenticator: AsyncBearerAuthenticator {
     }
     
     func authenticate(bearer: BearerAuthorization, for request: Request) async throws {
+        try await innerAuthenticate(bearer: bearer, for: request)
+        
+        guard !(request.url.path.hasSuffix("me") || request.url.path.hasSuffix("accept-tos")) else {
+            return
+        }
+        
+        // Check for TOS Acceptance if for user all APIs except /me
+        let user = try request.auth.require(User.self)
+        guard user.hasAcceptedTOS else {
+            throw Abort(.forbidden, reason: "You must accept the Terms of Service to use this API. Please do so at https://app.proxlock.dev")
+        }
+        
+        return
+    }
+    
+    func innerAuthenticate(bearer: BearerAuthorization, for request: Request) async throws {
         if bearer.token.hasPrefix("sk_") {
             try await handleAPIKeyAuth(bearer: bearer, for: request)
             return
