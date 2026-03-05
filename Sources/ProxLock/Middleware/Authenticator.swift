@@ -28,7 +28,7 @@ struct Authenticator: AsyncBearerAuthenticator {
     func authenticate(bearer: BearerAuthorization, for request: Request) async throws {
         try await innerAuthenticate(bearer: bearer, for: request)
         
-        guard !(request.url.path.hasSuffix("me") || request.url.path.hasSuffix("accept-tos")) else {
+        guard !(request.url.path.hasSuffix("/me") || request.url.path.hasSuffix("/accept-tos")) else {
             return
         }
         
