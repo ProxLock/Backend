@@ -136,7 +136,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         
         static func generateHash(from key: String) throws -> String {
             guard let data = key.data(using: .utf8) else {
-                throw CryptoError.unwrapFailure
+                throw Abort(.internalServerError, reason: "Failed to encode access key as UTF-8")
             }
             
             // Compute the SHA256 hash
