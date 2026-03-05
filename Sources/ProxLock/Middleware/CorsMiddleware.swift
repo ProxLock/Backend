@@ -11,15 +11,21 @@ import Vapor
 private let corsConfiguration = CORSMiddleware.Configuration(
     allowedOrigin: .any(["http://127.0.0.1:5173", "http://127.0.0.1:5174", "http://localhost:5173",  "http://localhost:5174", "https://proxlock.dev", "https://app.proxlock.dev", "https://admin.proxlock.dev"]),
     allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
-    allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin],
-    allowCredentials: true
+    allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin, .code],
+    allowCredentials: true,
+    exposedHeaders: [.code]
 )
 let corsMiddleware = CORSMiddleware(configuration: corsConfiguration)
 
 private let wildcardCorsConfiguration = CORSMiddleware.Configuration(
     allowedOrigin: .all,
     allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
-    allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin],
-    allowCredentials: false
+    allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin, .code],
+    allowCredentials: false,
+    exposedHeaders: [.code]
 )
 let wildcardCorsMiddleware = CORSMiddleware(configuration: wildcardCorsConfiguration)
+
+extension HTTPHeaders.Name {
+    static let code = HTTPHeaders.Name("Code")
+}
