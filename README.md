@@ -105,6 +105,8 @@ Before you begin, ensure you have the following installed:
 | `CLERK_WEBHOOK_SECRET` | Clerk webhook secret for authentication | Yes | - |
 | `CLERK_ADMIN_IDS` | The Clerk User IDs denoting administrators | no | - |
 | `BLACKLISTED_PROXY_DESTINATIONS` | Hosts that will always be rejected by /proxy | no | - |
+| `MINIMUM_TERMS_DATE_FOR_PROXY` | The minimum date for a user to have last accepted TOS for proxy use to be allowed. (Type: Epoch TimeInterval) | no | 1767225600 |
+| `TERMS_LAST_UPDATED` | The minimum date for a user to have last accepted TOS for non-proxy api use to be allowed. (Type: Epoch TimeInterval) | no | 1767225600 |
 
 ## Building and Running
 

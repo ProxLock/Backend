@@ -35,7 +35,7 @@ struct Authenticator: AsyncBearerAuthenticator {
         // Check for TOS Acceptance if for user all APIs except /me
         let user = try request.auth.require(User.self)
         guard let lastAcceptedTOS = user.lastAcceptedTOS, lastAcceptedTOS > Constants.termsLastUpdated else {
-            throw Abort(.forbidden, reason: "You must accept the Terms of Service to use this API. Please do so at https://app.proxlock.dev")
+            throw Abort(.forbidden, headers: .init([("Code", "-1")]), reason: "You must accept the Terms of Service to use this API. Please do so at https://app.proxlock.dev")
         }
         
         return
