@@ -14,6 +14,9 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "clerk_id")
     var clerkID: String
     
+    @Field(key: "last_accepted_tos")
+    var lastAcceptedTOS: Date?
+    
     @OptionalEnum(key: "current_subscription")
     var currentSubscription: SubscriptionPlans?
     
@@ -55,9 +58,10 @@ final class User: Model, Authenticatable, @unchecked Sendable {
 
     init() { }
 
-    init(id: UUID? = nil, clerkID: String) {
+    init(id: UUID? = nil, clerkID: String, lastAcceptedTOS: Date? = nil) {
         self.id = id
         self.clerkID = clerkID
+        self.lastAcceptedTOS = lastAcceptedTOS
     }
     
     func toDTO(on db: any Database) async throws -> UserDTO {
@@ -78,36 +82,9 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             apiKeyLimit: overrideAPIKeyLimit ?? (currentSubscription ?? .free).keyLimit,
             projectLimit: overrideProjectLimit ?? (currentSubscription ?? .free).projectLimit,
             accessKeys: apiKeys.compactMap({ try? $0.toDTO() }),
-            isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
+            isAdmin: Constants.adminClerkIDs.contains(self.clerkID),
+            lastAcceptedTOS: lastAcceptedTOS?.timeIntervalSince1970
         )
-    }
-    
-    func getOrCreateCurrentMonthlyHistoricalRecord(req: Request) async throws -> MonthlyUserUsageHistory {
-        try await getOrCreateCurrentMonthlyHistoricalRecord(db: req.db)
-    }
-    
-    func getOrCreateCurrentMonthlyHistoricalRecord(db: any Database) async throws -> MonthlyUserUsageHistory {
-        // Get Historical Log
-        var calendar = Calendar.autoupdatingCurrent
-        calendar.timeZone = .gmt
-        
-        var historyEntry = try await MonthlyUserUsageHistory.query(on: db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
-        
-        if historyEntry == nil {
-            let newEntry = MonthlyUserUsageHistory(requestCount: 0, subscription: currentSubscription ?? .free, month: Date().startOfMonth(calendar: calendar))
-            
-            newEntry.$user.id = try requireID()
-            
-            try await newEntry.save(on: db)
-            
-            historyEntry = newEntry
-        }
-        
-        guard let historyEntry else {
-            throw Abort(.internalServerError)
-        }
-        
-        return historyEntry
     }
     
     final class AccessKey: Model, Authenticatable, @unchecked Sendable {

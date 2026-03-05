@@ -6,6 +6,7 @@ struct UserController: RouteCollection {
         let users = routes.grouped("me")
         
         users.post(use: self.create)
+        users.post("accept-tos", use: self.acceptTOS)
         users.get(use: self.get)
         users.delete(use: self.delete)
         
@@ -52,6 +53,24 @@ struct UserController: RouteCollection {
         dto.justRegistered = true
         
         return dto
+    }
+    
+    /// POST /me/accept-tos
+    ///
+    /// Accepts TOS for a User.
+    ///
+    /// ## Required Headers
+    /// - Expects a bearer token object from Clerk. More information here: https://clerk.com/docs/react/reference/hooks/use-auth
+    ///
+    /// - Parameters:
+    ///   - req: The HTTP request containing the user ID parameter
+    /// - Returns: ``UserDTO`` object containing the user information
+    @Sendable
+    func acceptTOS(req: Request) async throws -> UserDTO {
+        let user = try req.auth.require(User.self)
+        user.lastAcceptedTOS = Date()
+        try await user.save(on: req.db)
+        return try await user.toDTO(on: req.db)
     }
     
     /// GET /me

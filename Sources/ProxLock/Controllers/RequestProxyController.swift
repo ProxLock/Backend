@@ -79,6 +79,10 @@ struct RequestProxyController: RouteCollection {
         // Get User
         let user = try await apiKeyDataLinkingMigrationController.getUser(forAPIKey: dbKey, on: req)
         
+        guard let lastAcceptedTOS = user.lastAcceptedTOS, lastAcceptedTOS >= Constants.minimumTermsDateForProxy else {
+            throw Abort(.forbidden, headers: .init([("Code", "-1")]), reason: "The developer must accept the ProxLock Terms of Service to use this API. Please do so at https://app.proxlock.dev")
+        }
+        
         // Validate user is under request limit
         guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey, with: user) else {
             throw Abort(.paymentRequired, reason: "Beyond request limit")
@@ -124,30 +128,6 @@ struct RequestProxyController: RouteCollection {
         }
         
         return try await req.client.send(request)
-    }
-    
-    private func validateUserLimitAllowsRequest(req: Request, dbKey: APIKey, with user: User) async throws -> Bool {
-        // Limit of less than or equal to -1 is Infinite
-        if let overrideMonthlyRequestLimit = user.overrideMonthlyRequestLimit, overrideMonthlyRequestLimit <= -1 {
-            return true
-        }
-        
-        let currentRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
-        
-        return currentRecord.requestCount < user.monthlyRequestLimit
-    }
-    
-    private func addToUsersRequestHistory(req: Request, dbKey: APIKey, with user: User) async throws {
-        // Get Historical Log
-        let monthlyEntry = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
-        
-        // Update Entry
-        monthlyEntry.requestCount += 1
-        try await monthlyEntry.save(on: req.db)
-        
-        let dailyEntry = try await monthlyEntry.getOrCreateCurrentDailyHistoricalRecord(req: req)
-        dailyEntry.requestCount += 1
-        try await dailyEntry.save(on: req.db)
     }
     
     private func getHostFromString(_ string: String) -> String? {
