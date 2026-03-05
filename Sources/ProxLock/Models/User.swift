@@ -83,7 +83,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             projectLimit: overrideProjectLimit ?? (currentSubscription ?? .free).projectLimit,
             accessKeys: apiKeys.compactMap({ try? $0.toDTO() }),
             isAdmin: Constants.adminClerkIDs.contains(self.clerkID),
-            lastAcceptedTOS: lastAcceptedTOS
+            lastAcceptedTOS: lastAcceptedTOS?.timeIntervalSince1970
         )
     }
     
