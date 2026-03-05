@@ -79,6 +79,10 @@ struct RequestProxyController: RouteCollection {
         // Get User
         let user = try await apiKeyDataLinkingMigrationController.getUser(forAPIKey: dbKey, on: req)
         
+        guard let lastAcceptedTOS = user.lastAcceptedTOS, lastAcceptedTOS > Constants.minimumTermsDateForProxy else {
+            throw Abort(.forbidden, reason: "The developer must accept the ProxLock Terms of Service to use this API. Please do so at https://app.proxlock.dev")
+        }
+        
         // Validate user is under request limit
         guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey, with: user) else {
             throw Abort(.paymentRequired, reason: "Beyond request limit")
