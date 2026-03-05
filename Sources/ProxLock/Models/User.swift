@@ -14,8 +14,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "clerk_id")
     var clerkID: String
     
-    @Field(key: "has_accepted_tos")
-    var hasAcceptedTOS: Bool
+    @Field(key: "last_accepted_tos")
+    var lastAcceptedTOS: Date?
     
     @OptionalEnum(key: "current_subscription")
     var currentSubscription: SubscriptionPlans?
@@ -58,9 +58,10 @@ final class User: Model, Authenticatable, @unchecked Sendable {
 
     init() { }
 
-    init(id: UUID? = nil, clerkID: String) {
+    init(id: UUID? = nil, clerkID: String, lastAcceptedTOS: Date? = nil) {
         self.id = id
         self.clerkID = clerkID
+        self.lastAcceptedTOS = lastAcceptedTOS
     }
     
     func toDTO(on db: any Database) async throws -> UserDTO {
@@ -82,7 +83,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             projectLimit: overrideProjectLimit ?? (currentSubscription ?? .free).projectLimit,
             accessKeys: apiKeys.compactMap({ try? $0.toDTO() }),
             isAdmin: Constants.adminClerkIDs.contains(self.clerkID),
-            hasAcceptedTOS: hasAcceptedTOS
+            lastAcceptedTOS: lastAcceptedTOS
         )
     }
     

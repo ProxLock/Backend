@@ -68,7 +68,7 @@ struct UserController: RouteCollection {
     @Sendable
     func acceptTOS(req: Request) async throws -> UserDTO {
         let user = try req.auth.require(User.self)
-        user.hasAcceptedTOS = true
+        user.lastAcceptedTOS = Date()
         try await user.save(on: req.db)
         return try await user.toDTO(on: req.db)
     }

@@ -13,7 +13,7 @@ struct UserDTO: Content {
     var justRegistered: Bool?
     let accessKeys: [UserAPIKeyDTO]?
     let isAdmin: Bool?
-    let hasAcceptedTOS: Bool?
+    let lastAcceptedTOS: Date?
 }
 
 struct UserAPIKeyDTO: Content {

@@ -12,4 +12,5 @@ struct Constants {
     static let clerkWebhookSecret: String = Environment.get("CLERK_WEBHOOK_SECRET")!
     static let dbHostname = Environment.get("DATABASE_HOST") ?? "localhost"
     static let blacklistedProxyDestinations: Set<String> = Set([dbHostname] + (Environment.get("BLACKLISTED_PROXY_DESTINATIONS")?.components(separatedBy: ", ") ?? []))
+    static let termsLastUpdated = Date(timeIntervalSince1970: 1767225600)
 }
