@@ -108,6 +108,11 @@ Before you begin, ensure you have the following installed:
 | `MINIMUM_TERMS_DATE_FOR_PROXY` | The minimum date for a user to have last accepted TOS for proxy use to be allowed. (Type: Epoch TimeInterval) | no | 1767225600 |
 | `TERMS_LAST_UPDATED` | The minimum date for a user to have last accepted TOS for non-proxy api use to be allowed. (Type: Epoch TimeInterval) | no | 1767225600 |
 
+## Error Codes
+| Code | Description |
+|----------|-------------|
+| `-1` | The user has not accepted the latest TOS and must do so before the action is permitted |
+
 ## Building and Running
 
 ### Build the project
