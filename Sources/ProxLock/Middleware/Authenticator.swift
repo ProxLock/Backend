@@ -75,7 +75,7 @@ struct Authenticator: AsyncBearerAuthenticator {
                 return
             }
             
-            guard let user = try await User.query(on: request.db).filter(\.$clerkID == claims.id).first() else {
+            guard let user = try await Cache.shared.getUser(clerkID: claims.id, on: request.db) else {
                 throw Errors.userNotFound
             }
             request.auth.login(user)
@@ -100,7 +100,7 @@ struct Authenticator: AsyncBearerAuthenticator {
             return false
         }
         
-        guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
+        guard let user = try await Cache.shared.getUser(clerkID: userID, on: request.db) else {
             throw Errors.userNotFound
         }
         

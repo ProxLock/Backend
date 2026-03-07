@@ -20,6 +20,7 @@ actor Cache {
     private var apiKeys: [APIKey.IDValue: CacheValue<APIKey>] = [:]
     private var projects: [Project.IDValue: CacheValue<Project>] = [:]
     private var users: [User.IDValue: CacheValue<User>] = [:]
+    private var clerkIDUsers: [String: CacheValue<User>] = [:]
     
     /// Gets an ``APIKey`` from the cache if available, otherwise it pulls it from the database and stores it in the cache for future use.
     func getAPIKey(_ id: APIKey.IDValue, on db: any Database) async throws -> APIKey? {
@@ -68,6 +69,28 @@ actor Cache {
         }
         
         users[id] = CacheValue(value: item, expiry: generateExpiration())
+        clerkIDUsers[item.clerkID] = CacheValue(value: item, expiry: generateExpiration())
+        
+        return item
+    }
+    
+    /// Gets a ``User`` from the cache if available, otherwise it pulls it from the database and stores it in the cache for future use.
+    func getUser(clerkID: String, on db: any Database) async throws -> User? {
+        if let item = clerkIDUsers[clerkID], item.expiry > Date() {
+            return item.value
+        }
+        
+        // Get Project so we can fetch the user
+        guard let item = try await User.query(on: db).filter(\.$clerkID == clerkID).first() else {
+            clerkIDUsers.removeValue(forKey: clerkID)
+            return nil
+        }
+        
+        clerkIDUsers[clerkID] = CacheValue(value: item, expiry: generateExpiration())
+        
+        if let userID = item.id {
+            users[userID] = CacheValue(value: item, expiry: generateExpiration())
+        }
         
         return item
     }
