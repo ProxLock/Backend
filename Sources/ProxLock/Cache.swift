@@ -138,7 +138,6 @@ extension ParentProperty where From == MonthlyUserUsageHistory, To == User {
     }
 }
 
-
 extension ParentProperty where From == DailyUserUsageHistory, To == User {
     func cachedGet(on db: any Database) async throws -> User {
         guard let item = try await Cache.shared.getUser(id, on: db) else {
