@@ -7,20 +7,57 @@
 
 import Vapor
 import Fluent
+import Queues
 
-struct CacheValue<T> {
+struct CacheValue<T> : Sendable where T: Sendable {
     let value: T
     let expiry: Date
+}
+
+/// Cleans Up Cache
+struct CacheCleanupJob: AsyncScheduledJob {
+    private let cache = Cache.shared
+
+    func run(context: QueueContext) async throws {
+        for item in await cache.apiKeys.filter({ $0.value.expiry < Date() }) {
+            await cache.removeAPIKey(item.key)
+        }
+        for item in await cache.projects.filter({ $0.value.expiry < Date() }) {
+            await cache.removeProject(item.key)
+        }
+        for item in await cache.users.filter({ $0.value.expiry < Date() }) {
+            await cache.removeUser(item.key)
+        }
+        for item in await cache.clerkIDUsers.filter({ $0.value.expiry < Date() }) {
+            guard let id = item.value.value.id else { continue }
+            await cache.removeUser(id)
+        }
+    }
+}
+
+extension Cache {
+    fileprivate func removeAPIKey(_ id: APIKey.IDValue) async {
+        self.apiKeys.removeValue(forKey: id)
+    }
+    
+    fileprivate func removeProject(_ id: Project.IDValue) async {
+        self.projects.removeValue(forKey: id)
+    }
+    
+    fileprivate func removeUser(_ id: User.IDValue) async {
+        self.users.removeValue(forKey: id)
+        self.clerkIDUsers.removeValue(forKey: "\(id)")
+    }
 }
 
 /// A cache of various objects that holds for 1 hour after initial fetch
 actor Cache {
     static let shared = Cache()
     
-    private var apiKeys: [APIKey.IDValue: CacheValue<APIKey>] = [:]
-    private var projects: [Project.IDValue: CacheValue<Project>] = [:]
-    private var users: [User.IDValue: CacheValue<User>] = [:]
-    private var clerkIDUsers: [String: CacheValue<User>] = [:]
+    fileprivate var apiKeys: [APIKey.IDValue: CacheValue<APIKey>] = [:]
+    fileprivate var projects: [Project.IDValue: CacheValue<Project>] = [:]
+    fileprivate var users: [User.IDValue: CacheValue<User>] = [:]
+    fileprivate var clerkIDUsers: [String: CacheValue<User>] = [:]
     
     /// Gets an ``APIKey`` from the cache if available, otherwise it pulls it from the database and stores it in the cache for future use.
     func getAPIKey(_ id: APIKey.IDValue, on db: any Database) async throws -> APIKey? {

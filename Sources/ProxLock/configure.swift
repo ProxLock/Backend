@@ -2,6 +2,7 @@ import NIOSSL
 import Fluent
 import FluentPostgresDriver
 import Vapor
+import Queues
 
 // configures your application
 public func configure(_ app: Application) async throws {
@@ -27,6 +28,7 @@ public func configure(_ app: Application) async throws {
     // Set Request Body Maximum
     app.routes.defaultMaxBodySize = "100mb"
 
+    // Set Migrations
     app.migrations.add(User.migrations)
     app.migrations.add(User.AccessKey.migrations)
     app.migrations.add(Project.migrations)
@@ -36,6 +38,10 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(MonthlyUserUsageHistory.migrations)
     app.migrations.add(DailyUserUsageHistory.migrations)
     try await app.autoMigrate()
+    
+    // Schedule Jobs
+    app.queues.schedule(CacheCleanupJob()).minutely()
+    try app.queues.startScheduledJobs()
 
     // register routes
     try routes(app)
