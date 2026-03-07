@@ -23,6 +23,9 @@ public func configure(_ app: Application) async throws {
     let jsonDecoder = JSONDecoder()
     jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
     ContentConfiguration.global.use(decoder: jsonDecoder, for: .json)
+    
+    // Set Request Body Maximum
+    app.routes.defaultMaxBodySize = "100mb"
 
     app.migrations.add(User.migrations)
     app.migrations.add(User.AccessKey.migrations)
