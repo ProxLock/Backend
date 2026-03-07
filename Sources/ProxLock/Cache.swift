@@ -146,6 +146,27 @@ actor Cache {
     }
 }
 
+extension APIKey {
+    func delete(on db: any Database) async throws {
+        try await Cache.shared.removeAPIKey(self.requireID())
+        try await self.delete(force: false, on: db)
+    }
+}
+
+extension Project {
+    func delete(on db: any Database) async throws {
+        try await Cache.shared.removeProject(self.requireID())
+        try await self.delete(force: false, on: db)
+    }
+}
+
+extension User {
+    func delete(on db: any Database) async throws {
+        try await Cache.shared.removeUser(self.requireID())
+        try await self.delete(force: false, on: db)
+    }
+}
+
 extension ParentProperty where From == APIKey, To == Project {
     func cachedGet(on db: any Database) async throws -> Project {
         guard let project = try await Cache.shared.getProject(id, on: db) else {
