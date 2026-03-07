@@ -84,8 +84,6 @@ struct DeviceCheckKeyController: RouteCollection {
             throw Abort(.notFound)
         }
         
-        try await project.$user.load(on: req.db)
-        
         guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
         }
@@ -186,8 +184,6 @@ struct DeviceCheckKeyController: RouteCollection {
             throw Abort(.notFound)
         }
         
-        try await project.$user.load(on: req.db)
-        
         guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
         }
@@ -252,13 +248,9 @@ struct DeviceCheckKeyController: RouteCollection {
             throw Abort(.notFound)
         }
         
-        try await project.$user.load(on: req.db)
-        
         guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
         }
-        
-        try await project.$deviceCheckKey.load(on: req.db)
         
         guard let key = try await project.$deviceCheckKey.get(on: req.db) else {
             throw Abort(.notFound)

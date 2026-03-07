@@ -57,7 +57,6 @@ final class MonthlyUserUsageHistory: Model, @unchecked Sendable {
         var historyEntry = try await DailyUserUsageHistory.query(on: db).filter(\.$day == Date().startOfDay(calendar: calendar)).filter(\.$monthlyUsage.$id == requireID()).with(\.$monthlyUsage).first()
         
         if historyEntry == nil {
-            try await $user.load(on: db)
             let user = try await $user.cachedGet(on: db)
             
             let newEntry = DailyUserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? .free, day: Date().startOfDay(calendar: calendar))

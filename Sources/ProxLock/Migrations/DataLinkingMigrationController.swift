@@ -20,11 +20,9 @@ actor APIKeyDataLinkingMigrationController {
     func getUser(forAPIKey dbKey: APIKey, on req: Request) async throws -> User {
         if dbKey.$user.id == nil {
             // Get Project
-            try await dbKey.$project.load(on: req.db)
             let project = try await dbKey.$project.cachedGet(on: req.db)
             
             // Get User
-            try await project.$user.load(on: req.db)
             let user = try await project.$user.cachedGet(on: req.db)
             
             if try !activelyLinkingUser.contains(dbKey.requireID()) {
@@ -36,7 +34,6 @@ actor APIKeyDataLinkingMigrationController {
             
             return user
         } else {
-            try await dbKey.$user.load(on: req.db)
             guard let user = try await dbKey.$user.cachedGet(on: req.db) else {
                 throw Abort(.internalServerError, reason: "Could not load User from APIKey")
             }
@@ -47,7 +44,6 @@ actor APIKeyDataLinkingMigrationController {
     
     func getDeviceCheckKey(for dbKey: APIKey, from request: Request) async throws -> DeviceCheckKey {
         if dbKey.$deviceCheckKey.id == nil {
-            try await dbKey.$project.load(on: request.db)
             let project = try await dbKey.$project.cachedGet(on: request.db)
             
             try await project.$deviceCheckKey.load(on: request.db)
@@ -76,7 +72,6 @@ actor APIKeyDataLinkingMigrationController {
     
     func getPlayIntegrityConfig(for dbKey: APIKey, from request: Request) async throws -> PlayIntegrityConfig {
         if dbKey.$playIntegrityConfig.id == nil {
-            try await dbKey.$project.load(on: request.db)
             let project = try await dbKey.$project.cachedGet(on: request.db)
             
             try await project.$playIntegrityConfig.load(on: request.db)

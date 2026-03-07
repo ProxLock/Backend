@@ -78,8 +78,6 @@ struct PlayIntegrityConfigController: RouteCollection {
             throw Abort(.notFound)
         }
 
-        try await project.$user.load(on: req.db)
-
         guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
         }
@@ -121,7 +119,6 @@ struct PlayIntegrityConfigController: RouteCollection {
             throw Abort(.notFound)
         }
 
-        try await project.$user.load(on: req.db)
         guard try await project.$user.cachedGet(on: req.db).requireID() == user.requireID() else {
             throw Abort(.notFound)
         }
@@ -169,8 +166,7 @@ struct PlayIntegrityConfigController: RouteCollection {
         guard let project = try await Cache.shared.getProject(dto.projectID, on: req.db) else {
             throw Abort(.notFound)
         }
-
-        try await project.$user.load(on: req.db)
+        
         guard try await project.$user.cachedGet(on: req.db).requireID() == user.requireID() else {
             throw Abort(.notFound)
         }
@@ -187,8 +183,6 @@ struct PlayIntegrityConfigController: RouteCollection {
         else {
             throw Abort(.notFound)
         }
-
-        try await project.$user.load(on: req.db)
 
         guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
@@ -220,8 +214,6 @@ struct PlayIntegrityConfigController: RouteCollection {
         else {
             throw Abort(.notFound)
         }
-
-        try await project.$user.load(on: req.db)
 
         guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
@@ -257,8 +249,6 @@ struct PlayIntegrityConfigController: RouteCollection {
         else {
             throw Abort(.notFound)
         }
-
-        try await project.$user.load(on: req.db)
 
         guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
