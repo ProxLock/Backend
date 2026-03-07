@@ -9,10 +9,16 @@ import Vapor
 import Fluent
 
 extension User {
+    /// Gets the current month's historical record or creates it if necessary.
+    ///
+    /// - Warning: This method does not use the cache.
     func getOrCreateCurrentMonthlyHistoricalRecord(req: Request) async throws -> MonthlyUserUsageHistory {
         try await getOrCreateCurrentMonthlyHistoricalRecord(db: req.db)
     }
     
+    /// Gets the current month's historical record or creates it if necessary.
+    ///
+    /// - Warning: This method does not use the cache.
     func getOrCreateCurrentMonthlyHistoricalRecord(db: any Database) async throws -> MonthlyUserUsageHistory {
         // Get Historical Log
         var calendar = Calendar.autoupdatingCurrent

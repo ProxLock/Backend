@@ -32,6 +32,12 @@ struct CacheCleanupJob: AsyncScheduledJob {
             guard let id = item.value.value.id else { continue }
             await cache.removeUser(id)
         }
+        for item in await cache.monthlyUserUsage.filter({ $0.value.expiry < Date() }) {
+            await cache.removeMonthlyUserUsage(for: item.key)
+        }
+        for item in await cache.dailyUserUsage.filter({ $0.value.expiry < Date() }) {
+            await cache.removeDailyUserUsage(for: item.key)
+        }
     }
 }
 
@@ -58,6 +64,8 @@ actor Cache {
     fileprivate var projects: [Project.IDValue: CacheValue<Project>] = [:]
     fileprivate var users: [User.IDValue: CacheValue<User>] = [:]
     fileprivate var clerkIDUsers: [String: CacheValue<User>] = [:]
+    internal var monthlyUserUsage: [CacheUsageLookup: CacheValue<MonthlyUserUsageHistory>] = [:]
+    internal var dailyUserUsage: [CacheUsageLookup: CacheValue<DailyUserUsageHistory>] = [:]
     
     /// Gets an ``APIKey`` from the cache if available, otherwise it pulls it from the database and stores it in the cache for future use.
     func getAPIKey(_ id: APIKey.IDValue, on db: any Database) async throws -> APIKey? {
@@ -133,7 +141,7 @@ actor Cache {
     }
     
     /// Generates an expiration date of 1 hour from now
-    private func generateExpiration() -> Date {
+    internal func generateExpiration() -> Date {
         .now.addingTimeInterval(60*60)
     }
 }

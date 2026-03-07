@@ -39,10 +39,16 @@ final class MonthlyUserUsageHistory: Model, @unchecked Sendable {
         return .init(id: try requireID(), requestCount: requestCount, subscription: subscription, month: month)
     }
     
+    /// Gets the current days's historical record or creates it if necessary.
+    ///
+    /// - Warning: This method does not use the cache.
     func getOrCreateCurrentDailyHistoricalRecord(req: Request) async throws -> DailyUserUsageHistory {
         try await getOrCreateCurrentDailyHistoricalRecord(db: req.db)
     }
     
+    /// Gets the current days's historical record or creates it if necessary.
+    ///
+    /// - Warning: This method does not use the cache.
     func getOrCreateCurrentDailyHistoricalRecord(db: any Database) async throws -> DailyUserUsageHistory {
         // Get Historical Log
         var calendar = Calendar.autoupdatingCurrent
