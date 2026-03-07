@@ -29,7 +29,7 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         
         let webhookItem: SubscriptionWebhookItem = try req.content.decode(SubscriptionWebhookItem.self, using: jsonDecoder)
         
-        guard let user = try await User.query(on: req.db).filter(\.$clerkID == webhookItem.data.payer.userId).first() else {
+        guard let user = try await Cache.shared.getUser(clerkID: webhookItem.data.payer.userId, on: req.db) else {
             throw Abort(.notFound)
         }
         
@@ -42,11 +42,11 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         user.currentSubscription = activeItem.plan.slug
         try await user.save(on: req.db)
         
-        let currentMonthlyUsageRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
+        let currentMonthlyUsageRecord = try await Cache.shared.getOrCreateMonthlyUserUsageHistory(.now, userID: user.requireID(), on: req.db)
         currentMonthlyUsageRecord.subscription.insert(activeItem.plan.slug)
         try await currentMonthlyUsageRecord.save(on: req.db)
         
-        let currentDailyUsageRecord = try await currentMonthlyUsageRecord.getOrCreateCurrentDailyHistoricalRecord(req: req)
+        let currentDailyUsageRecord = try await Cache.shared.getOrCreateDailyUserUsageHistory(.now, userID: user.requireID(), on: req.db)
         currentDailyUsageRecord.subscription.insert(activeItem.plan.slug)
         try await currentDailyUsageRecord.save(on: req.db)
         
