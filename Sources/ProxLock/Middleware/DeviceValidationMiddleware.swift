@@ -158,12 +158,15 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
     }
     
     private func getDBKey(from request: Request) async throws -> APIKey {
-        guard let associationId = request.headers.first(name: ProxyHeaderKeys.associationId) else {
+        guard let associationIdString = request.headers.first(name: ProxyHeaderKeys.associationId) else {
             throw Abort(.unauthorized, reason: "Failed Device Validation: Association ID not detected")
+        }
+        guard let associationId = UUID(uuidString: associationIdString) else {
+            throw Abort(.badRequest, reason: "Unexpected error parsing association ID from request headers.")
         }
         
         // Get Project so we can fetch the user
-        guard let dbKey = try await APIKey.find(UUID(uuidString: associationId), on: request.db) else {
+        guard let dbKey = try await Cache.shared.getAPIKey(request: request, for: associationId) else {
             throw Abort(.unauthorized, reason: "Key was not found")
         }
         
