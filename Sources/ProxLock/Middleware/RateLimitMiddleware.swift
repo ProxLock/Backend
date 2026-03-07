@@ -58,7 +58,7 @@ struct RateLimitMiddleware: AsyncMiddleware {
         }
         
         // Get Project so we can fetch the user
-        guard let dbKey = try await Cache.shared.getAPIKey(request: request, for: associationId) else {
+        guard let dbKey = try await Cache.shared.getAPIKey(request, for: associationId) else {
             throw Abort(.unauthorized, reason: "Key was not found")
         }
         

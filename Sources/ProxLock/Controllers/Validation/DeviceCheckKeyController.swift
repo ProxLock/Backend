@@ -80,7 +80,7 @@ struct DeviceCheckKeyController: RouteCollection {
     @Sendable
     func create(req: Request) async throws -> DeviceCheckKeySendingDTO {
         let user = try req.auth.require(User.self)
-        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Project.find(projectID, on: req.db) else {
+        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Cache.shared.getProject(req, for: projectID) else {
             throw Abort(.notFound)
         }
         
@@ -182,7 +182,7 @@ struct DeviceCheckKeyController: RouteCollection {
             throw Abort(.notFound)
         }
         
-        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Project.find(projectID, on: req.db) else {
+        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Cache.shared.getProject(req, for: projectID) else {
             throw Abort(.notFound)
         }
         
@@ -248,7 +248,7 @@ struct DeviceCheckKeyController: RouteCollection {
     @Sendable
     func get(req: Request) async throws -> DeviceCheckKeySendingDTO {
         let user = try req.auth.require(User.self)
-        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Project.find(projectID, on: req.db) else {
+        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Cache.shared.getProject(req, for: projectID) else {
             throw Abort(.notFound)
         }
         
@@ -283,7 +283,7 @@ struct DeviceCheckKeyController: RouteCollection {
     @Sendable
     func delete(req: Request) async throws -> HTTPStatus {
         let user = try req.auth.require(User.self)
-        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Project.find(projectID, on: req.db) else {
+        guard let projectID = req.parameters.get("projectID", as: UUID.self), let project = try await Cache.shared.getProject(req, for: projectID) else {
             throw Abort(.notFound)
         }
         
