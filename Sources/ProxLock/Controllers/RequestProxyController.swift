@@ -68,7 +68,7 @@ struct RequestProxyController: RouteCollection {
         headers.remove(name: "Host")
         
         // Get Full Key
-        guard let dbKey = try await Cache.shared.getAPIKey(req, for: associationId) else {
+        guard let dbKey = try await Cache.shared.getAPIKey(associationId, on: req.db) else {
             throw Abort(.badRequest, reason: "Key was not found")
         }
         

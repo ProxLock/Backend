@@ -55,7 +55,7 @@ struct Authenticator: AsyncBearerAuthenticator {
             throw Errors.userNotFound
         }
         try await key.$user.load(on: request.db)
-        let user = try await key.$user.get(on: request.db)
+        let user = try await key.$user.cachedGet(on: request.db)
         
         try validateAdminAccess(for: request, with: user.clerkID)
         guard try await !didImpersonateFromAdmin(for: request, adminUserID: user.clerkID) else {
