@@ -49,7 +49,7 @@ extension Cache {
         }
         
         // Get Project so we can fetch the user
-        let item = try await user.getOrCreateCurrentMonthlyHistoricalRecord(db: db)
+        let item = try await user.getOrCreateMonthlyHistoricalRecord(date, db: db)
         
         monthlyUserUsage[lookup] = CacheValue(value: item, expiry: generateExpiration())
         
@@ -74,7 +74,7 @@ extension Cache {
         let month = try await getOrCreateMonthlyUserUsageHistory(date, userID: userID, on: db)
         
         // Get Project so we can fetch the user
-        let item = try await month.getOrCreateCurrentDailyHistoricalRecord(db: db)
+        let item = try await month.getOrCreateDailyHistoricalRecord(date, db: db)
         
         dailyUserUsage[lookup] = CacheValue(value: item, expiry: generateExpiration())
         
