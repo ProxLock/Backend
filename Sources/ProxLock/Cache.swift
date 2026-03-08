@@ -29,8 +29,7 @@ struct CacheCleanupJob: AsyncScheduledJob {
             await cache.removeUser(item.key)
         }
         for item in await cache.clerkIDUsers.filter({ $0.value.expiry < Date() }) {
-            guard let id = item.value.value.id else { continue }
-            await cache.removeUser(id)
+            await cache.removeClerkIDUser(item.key)
         }
         for item in await cache.monthlyUserUsage.filter({ $0.value.expiry < Date() }) {
             await cache.removeMonthlyUserUsage(for: item.key)
@@ -52,7 +51,10 @@ extension Cache {
     
     fileprivate func removeUser(_ id: User.IDValue) async {
         self.users.removeValue(forKey: id)
-        self.clerkIDUsers.removeValue(forKey: "\(id)")
+    }
+    
+    fileprivate func removeClerkIDUser(_ id: String) async {
+        self.clerkIDUsers.removeValue(forKey: id)
     }
 }
 
@@ -162,6 +164,7 @@ extension Project {
 
 extension User {
     func delete(on db: any Database) async throws {
+        await Cache.shared.removeClerkIDUser(self.clerkID)
         try await Cache.shared.removeUser(self.requireID())
         try await self.delete(force: false, on: db)
     }
