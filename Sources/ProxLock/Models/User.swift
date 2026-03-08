@@ -68,7 +68,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         try await $projects.load(on: db)
         let projects = try await $projects.get(on: db)
         let projectsDTOs = try await projects.asyncMap({ try await $0.toDTO(on: db) })
-        let currentRecord = try await getOrCreateCurrentMonthlyHistoricalRecord(db: db)
+        let currentRecord = try await Cache.shared.getOrCreateMonthlyUserUsageHistory(.now, userID: requireID(), on: db)
         try await $accessKey.load(on: db)
         let apiKeys = try await $accessKey.get(on: db)
         

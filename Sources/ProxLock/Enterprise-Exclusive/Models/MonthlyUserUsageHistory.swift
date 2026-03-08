@@ -39,20 +39,25 @@ final class MonthlyUserUsageHistory: Model, @unchecked Sendable {
         return .init(id: try requireID(), requestCount: requestCount, subscription: subscription, month: month)
     }
     
-    func getOrCreateCurrentDailyHistoricalRecord(req: Request) async throws -> DailyUserUsageHistory {
-        try await getOrCreateCurrentDailyHistoricalRecord(db: req.db)
+    /// Gets the current days's historical record or creates it if necessary.
+    ///
+    /// - Warning: This method does not use the cache.
+    func getOrCreateDailyHistoricalRecord(_ date: Date, req: Request) async throws -> DailyUserUsageHistory {
+        try await getOrCreateDailyHistoricalRecord(date, db: req.db)
     }
     
-    func getOrCreateCurrentDailyHistoricalRecord(db: any Database) async throws -> DailyUserUsageHistory {
+    /// Gets the current days's historical record or creates it if necessary.
+    ///
+    /// - Warning: This method does not use the cache.
+    func getOrCreateDailyHistoricalRecord(_ date: Date, db: any Database) async throws -> DailyUserUsageHistory {
         // Get Historical Log
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .gmt
         
-        var historyEntry = try await DailyUserUsageHistory.query(on: db).filter(\.$day == Date().startOfDay(calendar: calendar)).filter(\.$monthlyUsage.$id == requireID()).with(\.$monthlyUsage).first()
+        var historyEntry = try await DailyUserUsageHistory.query(on: db).filter(\.$day == date.startOfDay(calendar: calendar)).filter(\.$monthlyUsage.$id == requireID()).with(\.$monthlyUsage).first()
         
         if historyEntry == nil {
-            try await $user.load(on: db)
-            let user = try await $user.get(on: db)
+            let user = try await $user.cachedGet(on: db)
             
             let newEntry = DailyUserUsageHistory(requestCount: 0, subscription: user.currentSubscription ?? .free, day: Date().startOfDay(calendar: calendar))
             

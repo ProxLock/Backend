@@ -35,8 +35,9 @@ struct APIKeyController: RouteCollection {
         let user = try req.auth.require(User.self)
         
         guard let projectIDString = req.parameters.get("projectID"),
-                let projectID = UUID(uuidString: projectIDString),
-              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+              let projectID = UUID(uuidString: projectIDString),
+              let project = try await Cache.shared.getProject(projectID, on: req.db),
+              try project.$user.id == user.requireID() else {
             throw Abort(.notFound)
         }
         
@@ -75,8 +76,9 @@ struct APIKeyController: RouteCollection {
         let user = try req.auth.require(User.self)
         
         guard let projectIDString = req.parameters.get("projectID"),
-                let projectID = UUID(uuidString: projectIDString),
-              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+              let projectID = UUID(uuidString: projectIDString),
+              let project = try await Cache.shared.getProject(projectID, on: req.db),
+              try project.$user.id == user.requireID() else {
             throw Abort(.notFound)
         }
         try await project.$apiKeys.load(on: req.db)
@@ -142,12 +144,14 @@ struct APIKeyController: RouteCollection {
         let keyDTO = try req.content.decode(APIKeyRecievingDTO.self)
         
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+              let project = try await Cache.shared.getProject(projectID, on: req.db),
+              try project.$user.id == user.requireID() else {
             throw Abort(.notFound)
         }
 
         guard let keyID = req.parameters.get("keyID", as: UUID.self),
-              let key = try await APIKey.query(on: req.db).filter(\.$id == keyID).filter(\.$project.$id == project.requireID()).with(\.$project).first() else {
+              let key = try await Cache.shared.getAPIKey(keyID, on: req.db),
+              try key.$project.id == project.requireID() else {
             throw Abort(.notFound)
         }
         
@@ -213,12 +217,14 @@ struct APIKeyController: RouteCollection {
         let user = try req.auth.require(User.self)
         
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+              let project = try await Cache.shared.getProject(projectID, on: req.db),
+              try project.$user.id == user.requireID() else {
             throw Abort(.notFound)
         }
 
         guard let keyID = req.parameters.get("keyID", as: UUID.self),
-              let key = try await APIKey.query(on: req.db).filter(\.$id == keyID).filter(\.$project.$id == project.requireID()).with(\.$project).first() else {
+              let key = try await Cache.shared.getAPIKey(keyID, on: req.db),
+              try key.$project.id == project.requireID() else {
             throw Abort(.notFound)
         }
 
@@ -244,12 +250,14 @@ struct APIKeyController: RouteCollection {
         let user = try req.auth.require(User.self)
         
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+              let project = try await Cache.shared.getProject(projectID, on: req.db),
+              try project.$user.id == user.requireID() else {
             throw Abort(.notFound)
         }
 
         guard let keyID = req.parameters.get("keyID", as: UUID.self),
-              let key = try await APIKey.query(on: req.db).filter(\.$id == keyID).filter(\.$project.$id == project.requireID()).with(\.$project).first() else {
+              let key = try await Cache.shared.getAPIKey(keyID, on: req.db),
+              try key.$project.id == project.requireID() else {
             throw Abort(.notFound)
         }
 

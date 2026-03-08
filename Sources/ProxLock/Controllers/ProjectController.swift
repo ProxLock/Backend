@@ -116,7 +116,8 @@ struct ProjectController: RouteCollection {
         let projectDTO = try req.content.decode(ProjectDTO.self)
         
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-              let dbProject = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+              let dbProject = try await Cache.shared.getProject(projectID, on: req.db),
+              try dbProject.$user.id == user.requireID() else {
             throw Abort(.notFound)
         }
         
@@ -154,7 +155,8 @@ struct ProjectController: RouteCollection {
         let user = try req.auth.require(User.self)
         
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+              let project = try await Cache.shared.getProject(projectID, on: req.db),
+              try project.$user.id == user.requireID() else {
             throw Abort(.notFound)
         }
 
@@ -179,7 +181,8 @@ struct ProjectController: RouteCollection {
         let user = try req.auth.require(User.self)
         
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-              let project = try await Project.query(on: req.db).filter(\.$id == projectID).filter(\.$user.$id == user.requireID()).with(\.$user).first() else {
+              let project = try await Cache.shared.getProject(projectID, on: req.db),
+              try project.$user.id == user.requireID() else {
             throw Abort(.notFound)
         }
 
