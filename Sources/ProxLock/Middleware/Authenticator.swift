@@ -54,8 +54,7 @@ struct Authenticator: AsyncBearerAuthenticator {
         guard let key = try await User.AccessKey.find(bearer.token, on: request.db) else {
             throw Errors.userNotFound
         }
-        try await key.$user.load(on: request.db)
-        let user = try await key.$user.get(on: request.db)
+        let user = try await key.$user.cachedGet(on: request.db)
         
         try validateAdminAccess(for: request, with: user.clerkID)
         guard try await !didImpersonateFromAdmin(for: request, adminUserID: user.clerkID) else {
@@ -75,7 +74,7 @@ struct Authenticator: AsyncBearerAuthenticator {
                 return
             }
             
-            guard let user = try await User.query(on: request.db).filter(\.$clerkID == claims.id).first() else {
+            guard let user = try await Cache.shared.getUser(clerkID: claims.id, on: request.db) else {
                 throw Errors.userNotFound
             }
             request.auth.login(user)
@@ -100,7 +99,7 @@ struct Authenticator: AsyncBearerAuthenticator {
             return false
         }
         
-        guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
+        guard let user = try await Cache.shared.getUser(clerkID: userID, on: request.db) else {
             throw Errors.userNotFound
         }
         

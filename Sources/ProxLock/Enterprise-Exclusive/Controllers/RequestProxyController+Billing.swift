@@ -14,20 +14,20 @@ extension RequestProxyController {
             return true
         }
         
-        let currentRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
+        let currentRecord = try await Cache.shared.getOrCreateMonthlyUserUsageHistory(.now, userID: user.requireID(), on: req.db)
         
         return currentRecord.requestCount < user.monthlyRequestLimit
     }
     
     func addToUsersRequestHistory(req: Request, dbKey: APIKey, with user: User) async throws {
         // Get Historical Log
-        let monthlyEntry = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
+        let monthlyEntry = try await Cache.shared.getOrCreateMonthlyUserUsageHistory(.now, userID: user.requireID(), on: req.db)
         
         // Update Entry
         monthlyEntry.requestCount += 1
         try await monthlyEntry.save(on: req.db)
         
-        let dailyEntry = try await monthlyEntry.getOrCreateCurrentDailyHistoricalRecord(req: req)
+        let dailyEntry = try await Cache.shared.getOrCreateDailyUserUsageHistory(.now, userID: user.requireID(), on: req.db)
         dailyEntry.requestCount += 1
         try await dailyEntry.save(on: req.db)
     }

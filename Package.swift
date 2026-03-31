@@ -19,6 +19,7 @@ let package = Package(
         .package(url: "https://github.com/mcrich23/vapordevicecheck.git", from: "1.1.3"),
         .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),
         .package(url: "https://github.com/mcrich23/google-cloud-kit.git", branch: "main"),
+        .package(url: "https://github.com/vapor/queues.git", from: "1.18.0"),
     ],
     targets: [
         .executableTarget(
@@ -33,6 +34,7 @@ let package = Package(
                 .product(name: "VaporDeviceCheck", package: "VaporDeviceCheck"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "GoogleCloudKit", package: "google-cloud-kit"),
+                .product(name: "Queues", package: "queues"),
             ],
             swiftSettings: swiftSettings
         )

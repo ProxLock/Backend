@@ -37,9 +37,13 @@ struct RequestProxyController: RouteCollection {
     @Sendable
     func proxyRequest(req: Request) async throws -> ClientResponse {
         var headers = req.headers
-        guard let associationId = headers.first(name: ProxyHeaderKeys.associationId) else {
+        guard let associationIdString = headers.first(name: ProxyHeaderKeys.associationId) else {
             throw Abort(.badRequest, reason: ProxyError.associationIdMissing.localizedDescription)
         }
+        guard let associationId = UUID(uuidString: associationIdString) else {
+            throw Abort(.badRequest, reason: "Unexpected error parsing association ID from request headers.")
+        }
+        
         guard let partialKey = headers.first(where: { $0.value.contains(ProxyHeaderKeys.partialKeyIdentifier)}) else {
             throw Abort(.badRequest, reason: ProxyError.partialKeyMissing.localizedDescription)
         }
@@ -64,7 +68,7 @@ struct RequestProxyController: RouteCollection {
         headers.remove(name: "Host")
         
         // Get Full Key
-        guard let dbKey = try await APIKey.find(UUID(uuidString: associationId), on: req.db) else {
+        guard let dbKey = try await Cache.shared.getAPIKey(associationId, on: req.db) else {
             throw Abort(.badRequest, reason: "Key was not found")
         }
         
