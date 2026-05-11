@@ -43,18 +43,24 @@ extension RequestProxyController {
         dbKey: APIKey,
         user: User,
         destinationHost: String
-    ) async throws -> WebSocketUsageSession {
+    ) -> EventLoopFuture<WebSocketUsageSession> {
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .gmt
 
-        let session = WebSocketUsageSession(
-            userID: try user.requireID(),
-            apiKeyID: try dbKey.requireID(),
-            destinationHost: destinationHost,
-            billingMonth: Date().startOfMonth(calendar: calendar)
-        )
-        try await session.save(on: req.db)
-        return session
+        do {
+            let session = WebSocketUsageSession(
+                userID: try user.requireID(),
+                apiKeyID: try dbKey.requireID(),
+                destinationHost: destinationHost,
+                billingMonth: Date().startOfMonth(calendar: calendar)
+            )
+
+            return session.save(on: req.db).map {
+                session
+            }
+        } catch {
+            return req.eventLoop.makeFailedFuture(error)
+        }
     }
 
     func flushWebSocketUsageSnapshot(

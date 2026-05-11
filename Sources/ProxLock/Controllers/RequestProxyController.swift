@@ -124,49 +124,56 @@ struct RequestProxyController: RouteCollection {
                 configuration: upstreamConfiguration,
                 on: req.eventLoop
             ) { upstreamWebSocket in
-                Task {
-                    do {
-                        let destinationHost = preparedProxyRequest.destinationURL.host() ?? "unknown"
-                        let usageSession = try await createWebSocketUsageSession(
-                            req: req,
-                            dbKey: preparedProxyRequest.dbKey,
-                            user: preparedProxyRequest.user,
-                            destinationHost: destinationHost
-                        )
-                        let trafficMeter = ProxyWebSocketTrafficMeter(
-                            apiKeyID: preparedProxyRequest.apiKeyID,
-                            destinationHost: destinationHost,
-                            maxBufferedBytesPerDirection: Constants.proxyWebSocketMaxBufferedBytesPerDirection
-                        )
-                        let usageSessionID = try usageSession.requireID()
-                        let usageFlushTask = startWebSocketUsageFlushLoop(
-                            req: req,
-                            user: preparedProxyRequest.user,
-                            sessionID: usageSessionID,
-                            trafficMeter: trafficMeter,
-                            clientWebSocket: clientWebSocket,
-                            upstreamWebSocket: upstreamWebSocket,
-                            logger: req.logger
-                        )
-                        bridgeWebSockets(
-                            clientWebSocket: clientWebSocket,
-                            upstreamWebSocket: upstreamWebSocket,
-                            trafficMeter: trafficMeter,
-                            usageSessionID: usageSessionID,
-                            usageFlushTask: usageFlushTask,
-                            req: req,
-                            user: preparedProxyRequest.user,
-                            logger: req.logger
-                        )
-                    } catch {
-                        req.logger.error("WebSocket billing session failed: \(error)")
-                        closeWebSocketPair(clientWebSocket, upstreamWebSocket)
+                let destinationHost = preparedProxyRequest.destinationURL.host() ?? "unknown"
+                let trafficMeter = ProxyWebSocketTrafficMeter(
+                    apiKeyID: preparedProxyRequest.apiKeyID,
+                    destinationHost: destinationHost,
+                    maxBufferedBytesPerDirection: Constants.proxyWebSocketMaxBufferedBytesPerDirection
+                )
+                let billingState = ProxyWebSocketBillingState()
+
+                bridgeWebSockets(
+                    clientWebSocket: clientWebSocket,
+                    upstreamWebSocket: upstreamWebSocket,
+                    trafficMeter: trafficMeter,
+                    billingState: billingState,
+                    req: req,
+                    user: preparedProxyRequest.user,
+                    logger: req.logger
+                )
+
+                createWebSocketUsageSession(
+                    req: req,
+                    dbKey: preparedProxyRequest.dbKey,
+                    user: preparedProxyRequest.user,
+                    destinationHost: destinationHost
+                ).whenComplete { result in
+                    upstreamWebSocket.eventLoop.execute {
+                        do {
+                            let usageSession = try result.get()
+                            let usageSessionID = try usageSession.requireID()
+                            let usageFlushTask = startWebSocketUsageFlushLoop(
+                                req: req,
+                                user: preparedProxyRequest.user,
+                                sessionID: usageSessionID,
+                                trafficMeter: trafficMeter,
+                                clientWebSocket: clientWebSocket,
+                                upstreamWebSocket: upstreamWebSocket,
+                                logger: req.logger
+                            )
+                            Task {
+                                await billingState.activate(sessionID: usageSessionID, usageFlushTask: usageFlushTask)
+                            }
+                        } catch {
+                            req.logger.error("WebSocket billing session failed: \(error)")
+                            closeWebSocketPair(clientWebSocket, upstreamWebSocket)
+                        }
                     }
                 }
             }.get()
         } catch {
             req.logger.error("WebSocket proxy failed: \(error)")
-            try? await clientWebSocket.close()
+            closeWebSocket(clientWebSocket)
         }
     }
 
@@ -311,67 +318,62 @@ struct RequestProxyController: RouteCollection {
         clientWebSocket: WebSocket,
         upstreamWebSocket: WebSocket,
         trafficMeter: ProxyWebSocketTrafficMeter,
-        usageSessionID: WebSocketUsageSession.IDValue,
-        usageFlushTask: Task<Void, Never>,
+        billingState: ProxyWebSocketBillingState,
         req: Request,
         user: User,
         logger: Logger
     ) {
+        let clientToUpstreamForwarder = NIOLoopBound(
+            ProxyWebSocketForwarder(
+                direction: .clientToUpstream,
+                destinationWebSocket: upstreamWebSocket,
+                peerWebSocket: clientWebSocket,
+                trafficMeter: trafficMeter,
+                logger: logger
+            ),
+            eventLoop: upstreamWebSocket.eventLoop
+        )
+        let upstreamToClientForwarder = NIOLoopBound(
+            ProxyWebSocketForwarder(
+                direction: .upstreamToClient,
+                destinationWebSocket: clientWebSocket,
+                peerWebSocket: upstreamWebSocket,
+                trafficMeter: trafficMeter,
+                logger: logger
+            ),
+            eventLoop: clientWebSocket.eventLoop
+        )
+
         clientWebSocket.onText { _, text in
-            Task {
-                await forwardWebSocketText(
-                    text,
-                    direction: .clientToUpstream,
-                    to: upstreamWebSocket,
-                    peer: clientWebSocket,
-                    trafficMeter: trafficMeter
-                )
+            upstreamWebSocket.eventLoop.execute {
+                clientToUpstreamForwarder.value.enqueueTextOnEventLoop(text)
             }
         }
 
         clientWebSocket.onBinary { _, buffer in
-            Task {
-                await forwardWebSocketBinary(
-                    buffer,
-                    direction: .clientToUpstream,
-                    to: upstreamWebSocket,
-                    peer: clientWebSocket,
-                    trafficMeter: trafficMeter
-                )
+            upstreamWebSocket.eventLoop.execute {
+                clientToUpstreamForwarder.value.enqueueBinaryOnEventLoop(buffer)
             }
         }
 
         upstreamWebSocket.onText { _, text in
-            Task {
-                await forwardWebSocketText(
-                    text,
-                    direction: .upstreamToClient,
-                    to: clientWebSocket,
-                    peer: upstreamWebSocket,
-                    trafficMeter: trafficMeter
-                )
+            clientWebSocket.eventLoop.execute {
+                upstreamToClientForwarder.value.enqueueTextOnEventLoop(text)
             }
         }
 
         upstreamWebSocket.onBinary { _, buffer in
-            Task {
-                await forwardWebSocketBinary(
-                    buffer,
-                    direction: .upstreamToClient,
-                    to: clientWebSocket,
-                    peer: upstreamWebSocket,
-                    trafficMeter: trafficMeter
-                )
+            clientWebSocket.eventLoop.execute {
+                upstreamToClientForwarder.value.enqueueBinaryOnEventLoop(buffer)
             }
         }
 
         clientWebSocket.onClose.whenComplete { _ in
-            upstreamWebSocket.close(promise: nil)
+            closeWebSocket(upstreamWebSocket)
             Task {
                 await finishWebSocketConnection(
                     trafficMeter,
-                    usageSessionID: usageSessionID,
-                    usageFlushTask: usageFlushTask,
+                    billingState: billingState,
                     req: req,
                     user: user,
                     logger: logger
@@ -380,12 +382,11 @@ struct RequestProxyController: RouteCollection {
         }
 
         upstreamWebSocket.onClose.whenComplete { _ in
-            clientWebSocket.close(promise: nil)
+            closeWebSocket(clientWebSocket)
             Task {
                 await finishWebSocketConnection(
                     trafficMeter,
-                    usageSessionID: usageSessionID,
-                    usageFlushTask: usageFlushTask,
+                    billingState: billingState,
                     req: req,
                     user: user,
                     logger: logger
@@ -427,81 +428,33 @@ struct RequestProxyController: RouteCollection {
         }
     }
 
-    /// Forwards a text message while reserving bounded outbound buffer capacity for the write.
-    private func forwardWebSocketText(
-        _ text: String,
-        direction: ProxyWebSocketDirection,
-        to destinationWebSocket: WebSocket,
-        peer peerWebSocket: WebSocket,
-        trafficMeter: ProxyWebSocketTrafficMeter
-    ) async {
-        let byteCount = text.utf8.count
-        guard await trafficMeter.reserveOutgoingBytes(byteCount, direction: direction) else {
-            closeWebSocketPair(destinationWebSocket, peerWebSocket)
-            return
-        }
-
-        let promise = destinationWebSocket.eventLoop.makePromise(of: Void.self)
-        destinationWebSocket.send(text, promise: promise)
-        promise.futureResult.whenComplete { result in
-            Task {
-                await trafficMeter.completeOutgoingBytes(byteCount, direction: direction)
-                if case .failure = result {
-                    closeWebSocketPair(destinationWebSocket, peerWebSocket)
-                }
-            }
-        }
-    }
-
-    /// Forwards a binary message while reserving bounded outbound buffer capacity for the write.
-    private func forwardWebSocketBinary(
-        _ buffer: ByteBuffer,
-        direction: ProxyWebSocketDirection,
-        to destinationWebSocket: WebSocket,
-        peer peerWebSocket: WebSocket,
-        trafficMeter: ProxyWebSocketTrafficMeter
-    ) async {
-        let byteCount = buffer.readableBytes
-        guard await trafficMeter.reserveOutgoingBytes(byteCount, direction: direction) else {
-            closeWebSocketPair(destinationWebSocket, peerWebSocket)
-            return
-        }
-
-        let promise = destinationWebSocket.eventLoop.makePromise(of: Void.self)
-        destinationWebSocket.send(buffer, promise: promise)
-        promise.futureResult.whenComplete { result in
-            Task {
-                await trafficMeter.completeOutgoingBytes(byteCount, direction: direction)
-                if case .failure = result {
-                    closeWebSocketPair(destinationWebSocket, peerWebSocket)
-                }
-            }
-        }
-    }
-
     /// Logs a single close summary for a proxied WebSocket connection.
     private func finishWebSocketConnection(
         _ trafficMeter: ProxyWebSocketTrafficMeter,
-        usageSessionID: WebSocketUsageSession.IDValue,
-        usageFlushTask: Task<Void, Never>,
+        billingState: ProxyWebSocketBillingState,
         req: Request,
         user: User,
         logger: Logger
     ) async {
-        usageFlushTask.cancel()
-        await usageFlushTask.value
+        let billingSnapshot = await billingState.finish()
+        billingSnapshot.usageFlushTask?.cancel()
+        await billingSnapshot.usageFlushTask?.value
 
         guard let snapshot = await trafficMeter.finish() else {
             return
         }
 
-        do {
-            try await closeWebSocketUsageSession(req: req, sessionID: usageSessionID, delta: snapshot.usageDelta)
-            if try await currentWebSocketUsageExceedsActiveGrace(req: req, user: user) {
-                logger.warning("WebSocket usage exceeded active connection grace after final flush")
+        if let usageSessionID = billingSnapshot.sessionID {
+            do {
+                try await closeWebSocketUsageSession(req: req, sessionID: usageSessionID, delta: snapshot.usageDelta)
+                if try await currentWebSocketUsageExceedsActiveGrace(req: req, user: user) {
+                    logger.warning("WebSocket usage exceeded active connection grace after final flush")
+                }
+            } catch {
+                logger.error("Error closing WebSocket usage session: \(error)")
             }
-        } catch {
-            logger.error("Error closing WebSocket usage session: \(error)")
+        } else if !snapshot.usageDelta.isEmpty {
+            logger.warning("WebSocket closed before billing session was created; final usage could not be saved")
         }
 
         logger.info("WebSocket proxy connection closed", metadata: [
@@ -518,8 +471,11 @@ struct RequestProxyController: RouteCollection {
 
     /// Closes both sides of a proxied WebSocket pair after a write failure or local buffer-limit breach.
     private func closeWebSocketPair(_ first: WebSocket, _ second: WebSocket) {
-        first.close(promise: nil)
-        second.close(promise: nil)
+        closeProxyWebSocketPair(first, second)
+    }
+
+    private func closeWebSocket(_ webSocket: WebSocket) {
+        closeProxyWebSocket(webSocket)
     }
     
     private func getHostFromString(_ string: String) -> String? {
@@ -608,6 +564,186 @@ private struct ConfigurableWebSocketUpgrader: Upgrader {
 private enum ProxyWebSocketDirection {
     case clientToUpstream
     case upstreamToClient
+}
+
+private func closeProxyWebSocketPair(_ first: WebSocket, _ second: WebSocket) {
+    closeProxyWebSocket(first)
+    closeProxyWebSocket(second)
+}
+
+private func closeProxyWebSocket(_ webSocket: WebSocket) {
+    let eventLoop = webSocket.eventLoop
+    if eventLoop.inEventLoop {
+        webSocket.close(promise: nil)
+    } else {
+        eventLoop.execute {
+            webSocket.close(promise: nil)
+        }
+    }
+}
+
+/// Event-loop-bound ordered sender for one direction of a proxied WebSocket pair.
+///
+/// Mutable state in this class is only accessed on `destinationWebSocket.eventLoop`.
+private final class ProxyWebSocketForwarder {
+    private enum Message {
+        case text(String)
+        case binary(ByteBuffer)
+
+        var byteCount: Int {
+            switch self {
+            case .text(let text):
+                return text.utf8.count
+            case .binary(let buffer):
+                return buffer.readableBytes
+            }
+        }
+    }
+
+    private let direction: ProxyWebSocketDirection
+    private let destinationWebSocket: WebSocket
+    private let peerWebSocket: WebSocket
+    private let trafficMeter: ProxyWebSocketTrafficMeter
+    private let logger: Logger
+    private var queue: [Message] = []
+    private var isSending = false
+    private var isClosed = false
+
+    init(
+        direction: ProxyWebSocketDirection,
+        destinationWebSocket: WebSocket,
+        peerWebSocket: WebSocket,
+        trafficMeter: ProxyWebSocketTrafficMeter,
+        logger: Logger
+    ) {
+        self.direction = direction
+        self.destinationWebSocket = destinationWebSocket
+        self.peerWebSocket = peerWebSocket
+        self.trafficMeter = trafficMeter
+        self.logger = logger
+    }
+
+    func enqueueTextOnEventLoop(_ text: String) {
+        enqueueOnEventLoop(.text(text))
+    }
+
+    func enqueueBinaryOnEventLoop(_ buffer: ByteBuffer) {
+        enqueueOnEventLoop(.binary(buffer))
+    }
+
+    private func enqueueOnEventLoop(_ message: Message) {
+        destinationWebSocket.eventLoop.preconditionInEventLoop()
+        guard !isClosed else {
+            return
+        }
+
+        queue.append(message)
+        drainOnEventLoop()
+    }
+
+    private func drainOnEventLoop() {
+        destinationWebSocket.eventLoop.preconditionInEventLoop()
+        guard !isClosed, !isSending, let message = queue.first else {
+            return
+        }
+
+        isSending = true
+        let byteCount = message.byteCount
+        let direction = self.direction
+        let eventLoop = destinationWebSocket.eventLoop
+        let trafficMeter = self.trafficMeter
+        let loopBoundForwarder = NIOLoopBound(self, eventLoop: eventLoop)
+
+        Task {
+            let reserved = await trafficMeter.reserveOutgoingBytes(byteCount, direction: direction)
+            eventLoop.execute {
+                loopBoundForwarder.value.sendReservedMessageOnEventLoop(message, byteCount: byteCount, reserved: reserved)
+            }
+        }
+    }
+
+    private func sendReservedMessageOnEventLoop(_ message: Message, byteCount: Int, reserved: Bool) {
+        destinationWebSocket.eventLoop.preconditionInEventLoop()
+        guard !isClosed else {
+            isSending = false
+            return
+        }
+
+        guard reserved else {
+            isClosed = true
+            closeProxyWebSocketPair(destinationWebSocket, peerWebSocket)
+            return
+        }
+
+        let promise = destinationWebSocket.eventLoop.makePromise(of: Void.self)
+        switch message {
+        case .text(let text):
+            destinationWebSocket.send(text, promise: promise)
+        case .binary(let buffer):
+            destinationWebSocket.send(buffer, promise: promise)
+        }
+
+        let direction = self.direction
+        let eventLoop = destinationWebSocket.eventLoop
+        let trafficMeter = self.trafficMeter
+        let loopBoundForwarder = NIOLoopBound(self, eventLoop: eventLoop)
+
+        promise.futureResult.whenComplete { result in
+            Task {
+                await trafficMeter.completeOutgoingBytes(byteCount, direction: direction)
+                eventLoop.execute {
+                    loopBoundForwarder.value.completeSendOnEventLoop(result)
+                }
+            }
+        }
+    }
+
+    private func completeSendOnEventLoop(_ result: Result<Void, any Error>) {
+        destinationWebSocket.eventLoop.preconditionInEventLoop()
+        if !queue.isEmpty {
+            queue.removeFirst()
+        }
+        isSending = false
+
+        if case .failure(let error) = result {
+            logger.error("WebSocket proxy send failed: \(error)")
+            isClosed = true
+            closeProxyWebSocketPair(destinationWebSocket, peerWebSocket)
+            return
+        }
+
+        drainOnEventLoop()
+    }
+}
+
+private actor ProxyWebSocketBillingState {
+    struct Snapshot {
+        let sessionID: WebSocketUsageSession.IDValue?
+        let usageFlushTask: Task<Void, Never>?
+    }
+
+    private var sessionID: WebSocketUsageSession.IDValue?
+    private var usageFlushTask: Task<Void, Never>?
+    private var isFinished = false
+
+    func activate(sessionID: WebSocketUsageSession.IDValue, usageFlushTask: Task<Void, Never>) {
+        guard !isFinished else {
+            usageFlushTask.cancel()
+            return
+        }
+
+        self.sessionID = sessionID
+        self.usageFlushTask = usageFlushTask
+    }
+
+    func finish() -> Snapshot {
+        guard !isFinished else {
+            return Snapshot(sessionID: nil, usageFlushTask: nil)
+        }
+
+        isFinished = true
+        return Snapshot(sessionID: sessionID, usageFlushTask: usageFlushTask)
+    }
 }
 
 /// Actor-isolated traffic accounting for one proxied WebSocket connection.
