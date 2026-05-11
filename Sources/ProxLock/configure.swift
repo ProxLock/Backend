@@ -27,6 +27,12 @@ public func configure(_ app: Application) async throws {
     
     // Set Request Body Maximum
     app.routes.defaultMaxBodySize = "100mb"
+    if Constants.proxyWebSocketMaxFrameSizeBytes > Constants.proxyWebSocketHighFrameSizeWarningThresholdBytes {
+        app.logger.warning("PROXY_WEBSOCKET_MAX_FRAME_SIZE_BYTES is set above the recommended warning threshold", metadata: [
+            "configuredBytes": .stringConvertible(Constants.proxyWebSocketMaxFrameSizeBytes),
+            "warningThresholdBytes": .stringConvertible(Constants.proxyWebSocketHighFrameSizeWarningThresholdBytes)
+        ])
+    }
 
     // Set Migrations
     app.migrations.add(User.migrations)

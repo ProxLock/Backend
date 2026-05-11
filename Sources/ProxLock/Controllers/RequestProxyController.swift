@@ -1,6 +1,8 @@
 import Fluent
 import AsyncHTTPClient
 import NIOCore
+import NIOHTTP1
+import NIOWebSocket
 import Vapor
 
 #if canImport(FoundationNetworking)
@@ -14,9 +16,7 @@ struct RequestProxyController: RouteCollection {
         let keys = routes.grouped("proxy")
 
         keys.post(use: proxyRequest)
-        keys.webSocket("ws", maxFrameSize: WebSocketMaxFrameSize(integerLiteral: Constants.proxyWebSocketMaxFrameSizeBytes)) { req, clientWebSocket async in
-            await proxyWebSocket(req: req, clientWebSocket: clientWebSocket)
-        }
+        keys.get("ws", use: proxyWebSocketRequest)
     }
 
     /// POST /proxy
@@ -77,21 +77,64 @@ struct RequestProxyController: RouteCollection {
         )
     }
 
+    /// Validates `/proxy/ws` and returns the WebSocket upgrade response for an authorized proxy request.
+    ///
+    /// Proxy validation intentionally happens before the `101 Switching Protocols` response so clients
+    /// receive normal HTTP handshake errors instead of ProxLock frames inside their application protocol.
     @Sendable
-    func proxyWebSocket(req: Request, clientWebSocket: WebSocket) async {
-        do {
-            let preparedProxyRequest = try await prepareProxyRequest(req: req, mode: .webSocket)
+    func proxyWebSocketRequest(req: Request) async throws -> Response {
+        let preparedProxyRequest = try await prepareProxyRequest(req: req, mode: .webSocket)
+        var selectedUpgradeHeaders = HTTPHeaders()
+        if let subprotocol = selectedWebSocketSubprotocol(from: req.headers) {
+            selectedUpgradeHeaders.replaceOrAdd(name: "Sec-WebSocket-Protocol", value: subprotocol)
+        }
+        let upgradeHeaders = selectedUpgradeHeaders
 
+        let response = Response(status: .switchingProtocols)
+        response.upgrader = ConfigurableWebSocketUpgrader(
+            maxFrameSize: Constants.proxyWebSocketMaxFrameSizeBytes,
+            maxAccumulatedFrameSize: Constants.proxyWebSocketMaxFrameSizeBytes,
+            maxAccumulatedFrameCount: Constants.proxyWebSocketMaxAccumulatedFrameCount,
+            shouldUpgrade: {
+                req.eventLoop.makeSucceededFuture(upgradeHeaders)
+            },
+            onUpgrade: { clientWebSocket in
+                Task {
+                    await proxyWebSocket(req: req, preparedProxyRequest: preparedProxyRequest, clientWebSocket: clientWebSocket)
+                }
+            }
+        )
+        return response
+    }
+
+    /// Proxies an accepted `/proxy/ws` WebSocket connection to the configured upstream WebSocket destination.
+    @Sendable
+    private func proxyWebSocket(req: Request, preparedProxyRequest: PreparedProxyRequest, clientWebSocket: WebSocket) async {
+        do {
             var upstreamHeaders = preparedProxyRequest.headers
             removeWebSocketHandshakeHeaders(from: &upstreamHeaders)
+
+            var upstreamConfiguration = WebSocketClient.Configuration(maxFrameSize: Constants.proxyWebSocketMaxFrameSizeBytes)
+            upstreamConfiguration.maxAccumulatedFrameSize = Constants.proxyWebSocketMaxFrameSizeBytes
+            upstreamConfiguration.maxAccumulatedFrameCount = Constants.proxyWebSocketMaxAccumulatedFrameCount
 
             try await WebSocket.connect(
                 to: preparedProxyRequest.destinationURL,
                 headers: upstreamHeaders,
-                configuration: .init(maxFrameSize: Constants.proxyWebSocketMaxFrameSizeBytes),
+                configuration: upstreamConfiguration,
                 on: req.eventLoop
             ) { upstreamWebSocket in
-                bridgeWebSockets(clientWebSocket: clientWebSocket, upstreamWebSocket: upstreamWebSocket)
+                let trafficMeter = ProxyWebSocketTrafficMeter(
+                    apiKeyID: preparedProxyRequest.apiKeyID,
+                    destinationHost: preparedProxyRequest.destinationURL.host() ?? "unknown",
+                    maxBufferedBytesPerDirection: Constants.proxyWebSocketMaxBufferedBytesPerDirection
+                )
+                bridgeWebSockets(
+                    clientWebSocket: clientWebSocket,
+                    upstreamWebSocket: upstreamWebSocket,
+                    trafficMeter: trafficMeter,
+                    logger: req.logger
+                )
             }.get()
 
             Task {
@@ -103,7 +146,7 @@ struct RequestProxyController: RouteCollection {
             }
         } catch {
             req.logger.error("WebSocket proxy failed: \(error)")
-            try? await clientWebSocket.close(code: .policyViolation)
+            try? await clientWebSocket.close()
         }
     }
 
@@ -112,15 +155,18 @@ struct RequestProxyController: RouteCollection {
         case webSocket
     }
 
+    /// Normalized proxy request state shared by the HTTP and WebSocket forwarding paths.
     private struct PreparedProxyRequest {
         let destinationString: String
         let destinationURL: URL
         let httpMethod: String
         let headers: HTTPHeaders
         let dbKey: APIKey
+        let apiKeyID: UUID
         let user: User
     }
 
+    /// Validates proxy headers, enforces destination/user policy, and reconstructs whitelisted secret headers.
     private func prepareProxyRequest(req: Request, mode: ProxyMode) async throws -> PreparedProxyRequest {
         var headers = req.headers
         guard let associationIdString = headers.first(name: ProxyHeaderKeys.associationId) else {
@@ -229,34 +275,154 @@ struct RequestProxyController: RouteCollection {
             httpMethod: httpMethod,
             headers: headers,
             dbKey: dbKey,
+            apiKeyID: try dbKey.requireID(),
             user: user
         )
     }
 
-    private func bridgeWebSockets(clientWebSocket: WebSocket, upstreamWebSocket: WebSocket) {
+    /// Installs bidirectional frame handlers between the client socket and upstream socket.
+    private func bridgeWebSockets(
+        clientWebSocket: WebSocket,
+        upstreamWebSocket: WebSocket,
+        trafficMeter: ProxyWebSocketTrafficMeter,
+        logger: Logger
+    ) {
         clientWebSocket.onText { _, text in
-            upstreamWebSocket.send(text)
+            Task {
+                await forwardWebSocketText(
+                    text,
+                    direction: .clientToUpstream,
+                    to: upstreamWebSocket,
+                    peer: clientWebSocket,
+                    trafficMeter: trafficMeter
+                )
+            }
         }
 
         clientWebSocket.onBinary { _, buffer in
-            upstreamWebSocket.send(buffer)
+            Task {
+                await forwardWebSocketBinary(
+                    buffer,
+                    direction: .clientToUpstream,
+                    to: upstreamWebSocket,
+                    peer: clientWebSocket,
+                    trafficMeter: trafficMeter
+                )
+            }
         }
 
         upstreamWebSocket.onText { _, text in
-            clientWebSocket.send(text)
+            Task {
+                await forwardWebSocketText(
+                    text,
+                    direction: .upstreamToClient,
+                    to: clientWebSocket,
+                    peer: upstreamWebSocket,
+                    trafficMeter: trafficMeter
+                )
+            }
         }
 
         upstreamWebSocket.onBinary { _, buffer in
-            clientWebSocket.send(buffer)
+            Task {
+                await forwardWebSocketBinary(
+                    buffer,
+                    direction: .upstreamToClient,
+                    to: clientWebSocket,
+                    peer: upstreamWebSocket,
+                    trafficMeter: trafficMeter
+                )
+            }
         }
 
         clientWebSocket.onClose.whenComplete { _ in
             upstreamWebSocket.close(promise: nil)
+            Task {
+                await finishWebSocketConnection(trafficMeter, logger: logger)
+            }
         }
 
         upstreamWebSocket.onClose.whenComplete { _ in
             clientWebSocket.close(promise: nil)
+            Task {
+                await finishWebSocketConnection(trafficMeter, logger: logger)
+            }
         }
+    }
+
+    /// Forwards a text message while reserving bounded outbound buffer capacity for the write.
+    private func forwardWebSocketText(
+        _ text: String,
+        direction: ProxyWebSocketDirection,
+        to destinationWebSocket: WebSocket,
+        peer peerWebSocket: WebSocket,
+        trafficMeter: ProxyWebSocketTrafficMeter
+    ) async {
+        let byteCount = text.utf8.count
+        guard await trafficMeter.reserveOutgoingBytes(byteCount, direction: direction) else {
+            closeWebSocketPair(destinationWebSocket, peerWebSocket)
+            return
+        }
+
+        let promise = destinationWebSocket.eventLoop.makePromise(of: Void.self)
+        destinationWebSocket.send(text, promise: promise)
+        promise.futureResult.whenComplete { result in
+            Task {
+                await trafficMeter.completeOutgoingBytes(byteCount, direction: direction)
+                if case .failure = result {
+                    closeWebSocketPair(destinationWebSocket, peerWebSocket)
+                }
+            }
+        }
+    }
+
+    /// Forwards a binary message while reserving bounded outbound buffer capacity for the write.
+    private func forwardWebSocketBinary(
+        _ buffer: ByteBuffer,
+        direction: ProxyWebSocketDirection,
+        to destinationWebSocket: WebSocket,
+        peer peerWebSocket: WebSocket,
+        trafficMeter: ProxyWebSocketTrafficMeter
+    ) async {
+        let byteCount = buffer.readableBytes
+        guard await trafficMeter.reserveOutgoingBytes(byteCount, direction: direction) else {
+            closeWebSocketPair(destinationWebSocket, peerWebSocket)
+            return
+        }
+
+        let promise = destinationWebSocket.eventLoop.makePromise(of: Void.self)
+        destinationWebSocket.send(buffer, promise: promise)
+        promise.futureResult.whenComplete { result in
+            Task {
+                await trafficMeter.completeOutgoingBytes(byteCount, direction: direction)
+                if case .failure = result {
+                    closeWebSocketPair(destinationWebSocket, peerWebSocket)
+                }
+            }
+        }
+    }
+
+    /// Logs a single close summary for a proxied WebSocket connection.
+    private func finishWebSocketConnection(_ trafficMeter: ProxyWebSocketTrafficMeter, logger: Logger) async {
+        guard let snapshot = await trafficMeter.finish() else {
+            return
+        }
+
+        logger.info("WebSocket proxy connection closed", metadata: [
+            "apiKeyID": .string(snapshot.apiKeyID.uuidString),
+            "destinationHost": .string(snapshot.destinationHost),
+            "durationSeconds": .stringConvertible(snapshot.durationSeconds),
+            "clientToUpstreamBytes": .stringConvertible(snapshot.clientToUpstreamBytes),
+            "upstreamToClientBytes": .stringConvertible(snapshot.upstreamToClientBytes),
+            "clientToUpstreamMessages": .stringConvertible(snapshot.clientToUpstreamMessages),
+            "upstreamToClientMessages": .stringConvertible(snapshot.upstreamToClientMessages)
+        ])
+    }
+
+    /// Closes both sides of a proxied WebSocket pair after a write failure or local buffer-limit breach.
+    private func closeWebSocketPair(_ first: WebSocket, _ second: WebSocket) {
+        first.close(promise: nil)
+        second.close(promise: nil)
     }
     
     private func getHostFromString(_ string: String) -> String? {
@@ -305,6 +471,131 @@ struct RequestProxyController: RouteCollection {
         ] {
             headers.remove(name: headerName)
         }
+    }
+
+    private func selectedWebSocketSubprotocol(from headers: HTTPHeaders) -> String? {
+        headers.first(name: "Sec-WebSocket-Protocol")?
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+    }
+
+}
+
+/// WebSocket upgrader that exposes WebSocketKit aggregation limits Vapor's convenience helper does not.
+private struct ConfigurableWebSocketUpgrader: Upgrader {
+    let maxFrameSize: Int
+    let maxAccumulatedFrameSize: Int
+    let maxAccumulatedFrameCount: Int
+    let shouldUpgrade: @Sendable () -> EventLoopFuture<HTTPHeaders?>
+    let onUpgrade: @Sendable (WebSocket) -> Void
+
+    func applyUpgrade(req: Request, res: Response) -> any HTTPServerProtocolUpgrader {
+        NIOWebSocketServerUpgrader(
+            maxFrameSize: maxFrameSize,
+            automaticErrorHandling: false,
+            shouldUpgrade: { _, _ in
+                shouldUpgrade()
+            },
+            upgradePipelineHandler: { channel, _ in
+                var configuration = WebSocket.Configuration()
+                configuration.maxAccumulatedFrameSize = maxAccumulatedFrameSize
+                configuration.maxAccumulatedFrameCount = maxAccumulatedFrameCount
+                return WebSocket.server(on: channel, config: configuration, onUpgrade: onUpgrade)
+            }
+        )
+    }
+}
+
+/// Direction label used for per-direction WebSocket byte and message accounting.
+private enum ProxyWebSocketDirection {
+    case clientToUpstream
+    case upstreamToClient
+}
+
+/// Actor-isolated traffic accounting for one proxied WebSocket connection.
+///
+/// It tracks pending outbound bytes for local buffer protection and records final byte/message totals
+/// for close-time logging.
+private actor ProxyWebSocketTrafficMeter {
+    /// Immutable summary emitted once when either side of the socket pair closes.
+    struct Snapshot {
+        let apiKeyID: UUID
+        let destinationHost: String
+        let durationSeconds: Double
+        let clientToUpstreamBytes: Int
+        let upstreamToClientBytes: Int
+        let clientToUpstreamMessages: Int
+        let upstreamToClientMessages: Int
+    }
+
+    private let startedAt = Date()
+    private let maxBufferedBytesPerDirection: Int
+    let apiKeyID: UUID
+    let destinationHost: String
+
+    private var isFinished = false
+    private var pendingClientToUpstreamBytes = 0
+    private var pendingUpstreamToClientBytes = 0
+    private var clientToUpstreamBytes = 0
+    private var upstreamToClientBytes = 0
+    private var clientToUpstreamMessages = 0
+    private var upstreamToClientMessages = 0
+
+    init(apiKeyID: UUID, destinationHost: String, maxBufferedBytesPerDirection: Int) {
+        self.apiKeyID = apiKeyID
+        self.destinationHost = destinationHost
+        self.maxBufferedBytesPerDirection = maxBufferedBytesPerDirection
+    }
+
+    /// Reserves pending outbound capacity and records message totals before a frame is written.
+    func reserveOutgoingBytes(_ byteCount: Int, direction: ProxyWebSocketDirection) -> Bool {
+        switch direction {
+        case .clientToUpstream:
+            guard pendingClientToUpstreamBytes + byteCount <= maxBufferedBytesPerDirection else {
+                return false
+            }
+            pendingClientToUpstreamBytes += byteCount
+            clientToUpstreamBytes += byteCount
+            clientToUpstreamMessages += 1
+        case .upstreamToClient:
+            guard pendingUpstreamToClientBytes + byteCount <= maxBufferedBytesPerDirection else {
+                return false
+            }
+            pendingUpstreamToClientBytes += byteCount
+            upstreamToClientBytes += byteCount
+            upstreamToClientMessages += 1
+        }
+
+        return true
+    }
+
+    /// Releases pending outbound capacity after the corresponding write promise completes.
+    func completeOutgoingBytes(_ byteCount: Int, direction: ProxyWebSocketDirection) {
+        switch direction {
+        case .clientToUpstream:
+            pendingClientToUpstreamBytes = max(0, pendingClientToUpstreamBytes - byteCount)
+        case .upstreamToClient:
+            pendingUpstreamToClientBytes = max(0, pendingUpstreamToClientBytes - byteCount)
+        }
+    }
+
+    /// Returns the final connection snapshot exactly once.
+    func finish() -> Snapshot? {
+        guard !isFinished else {
+            return nil
+        }
+        isFinished = true
+
+        return Snapshot(
+            apiKeyID: apiKeyID,
+            destinationHost: destinationHost,
+            durationSeconds: Date().timeIntervalSince(startedAt),
+            clientToUpstreamBytes: clientToUpstreamBytes,
+            upstreamToClientBytes: upstreamToClientBytes,
+            clientToUpstreamMessages: clientToUpstreamMessages,
+            upstreamToClientMessages: upstreamToClientMessages
+        )
     }
 }
 

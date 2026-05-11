@@ -106,6 +106,8 @@ Before you begin, ensure you have the following installed:
 | `CLERK_ADMIN_IDS` | The Clerk User IDs denoting administrators | no | - |
 | `BLACKLISTED_PROXY_DESTINATIONS` | Hosts that will always be rejected by /proxy | no | - |
 | `PROXY_WEBSOCKET_MAX_FRAME_SIZE_BYTES` | Maximum accepted WebSocket frame size for /proxy/ws, in bytes | no | 20971520 |
+| `PROXY_WEBSOCKET_MAX_BUFFERED_BYTES_PER_DIRECTION` | Maximum pending outbound WebSocket bytes buffered per connection direction before the proxy closes the connection | no | 2x `PROXY_WEBSOCKET_MAX_FRAME_SIZE_BYTES` |
+| `PROXY_WEBSOCKET_MAX_ACCUMULATED_FRAME_COUNT` | Maximum number of upstream WebSocket fragments WebSocketKit will aggregate into one message | no | 4096 |
 | `MINIMUM_TERMS_DATE_FOR_PROXY` | The minimum date for a user to have last accepted TOS for proxy use to be allowed. (Type: Epoch TimeInterval) | no | 1767225600 |
 | `TERMS_LAST_UPDATED` | The minimum date for a user to have last accepted TOS for non-proxy api use to be allowed. (Type: Epoch TimeInterval) | no | 1767225600 |
 
