@@ -52,7 +52,7 @@ struct RequestProxyController: RouteCollection {
 
         Task {
             do {
-                try await addToUsersRequestHistory(req: req, dbKey: preparedProxyRequest.dbKey, with: preparedProxyRequest.user)
+                try await addToUsersHttpRequestHistory(req: req, dbKey: preparedProxyRequest.dbKey, with: preparedProxyRequest.user)
             } catch {
                 req.logger.error("Error Adding to Request History: \(error)")
             }
@@ -124,26 +124,46 @@ struct RequestProxyController: RouteCollection {
                 configuration: upstreamConfiguration,
                 on: req.eventLoop
             ) { upstreamWebSocket in
-                let trafficMeter = ProxyWebSocketTrafficMeter(
-                    apiKeyID: preparedProxyRequest.apiKeyID,
-                    destinationHost: preparedProxyRequest.destinationURL.host() ?? "unknown",
-                    maxBufferedBytesPerDirection: Constants.proxyWebSocketMaxBufferedBytesPerDirection
-                )
-                bridgeWebSockets(
-                    clientWebSocket: clientWebSocket,
-                    upstreamWebSocket: upstreamWebSocket,
-                    trafficMeter: trafficMeter,
-                    logger: req.logger
-                )
-            }.get()
-
-            Task {
-                do {
-                    try await addToUsersRequestHistory(req: req, dbKey: preparedProxyRequest.dbKey, with: preparedProxyRequest.user)
-                } catch {
-                    req.logger.error("Error Adding to Request History: \(error)")
+                Task {
+                    do {
+                        let destinationHost = preparedProxyRequest.destinationURL.host() ?? "unknown"
+                        let usageSession = try await createWebSocketUsageSession(
+                            req: req,
+                            dbKey: preparedProxyRequest.dbKey,
+                            user: preparedProxyRequest.user,
+                            destinationHost: destinationHost
+                        )
+                        let trafficMeter = ProxyWebSocketTrafficMeter(
+                            apiKeyID: preparedProxyRequest.apiKeyID,
+                            destinationHost: destinationHost,
+                            maxBufferedBytesPerDirection: Constants.proxyWebSocketMaxBufferedBytesPerDirection
+                        )
+                        let usageSessionID = try usageSession.requireID()
+                        let usageFlushTask = startWebSocketUsageFlushLoop(
+                            req: req,
+                            user: preparedProxyRequest.user,
+                            sessionID: usageSessionID,
+                            trafficMeter: trafficMeter,
+                            clientWebSocket: clientWebSocket,
+                            upstreamWebSocket: upstreamWebSocket,
+                            logger: req.logger
+                        )
+                        bridgeWebSockets(
+                            clientWebSocket: clientWebSocket,
+                            upstreamWebSocket: upstreamWebSocket,
+                            trafficMeter: trafficMeter,
+                            usageSessionID: usageSessionID,
+                            usageFlushTask: usageFlushTask,
+                            req: req,
+                            user: preparedProxyRequest.user,
+                            logger: req.logger
+                        )
+                    } catch {
+                        req.logger.error("WebSocket billing session failed: \(error)")
+                        closeWebSocketPair(clientWebSocket, upstreamWebSocket)
+                    }
                 }
-            }
+            }.get()
         } catch {
             req.logger.error("WebSocket proxy failed: \(error)")
             try? await clientWebSocket.close()
@@ -234,9 +254,15 @@ struct RequestProxyController: RouteCollection {
             throw Abort(.forbidden, headers: .init([("Code", "-1")]), reason: "The developer must accept the ProxLock Terms of Service to use this API. Please do so at https://app.proxlock.dev")
         }
 
-        // Validate user is under request limit
-        guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey, with: user) else {
-            throw Abort(.paymentRequired, reason: "Beyond request limit")
+        switch mode {
+        case .http:
+            guard try await validateHttpUserLimitAllowsRequest(req: req, dbKey: dbKey, with: user) else {
+                throw Abort(.paymentRequired, reason: "Beyond request limit")
+            }
+        case .webSocket:
+            guard try await validateUserAllowsWebSocketStart(req: req, dbKey: dbKey, with: user) else {
+                throw Abort(.paymentRequired, reason: "Beyond WebSocket usage limit")
+            }
         }
 
         let checkingUrls = (dbKey.whitelistedUrls ?? []).filter { getHostFromString($0) == destinationURL.host }
@@ -285,6 +311,10 @@ struct RequestProxyController: RouteCollection {
         clientWebSocket: WebSocket,
         upstreamWebSocket: WebSocket,
         trafficMeter: ProxyWebSocketTrafficMeter,
+        usageSessionID: WebSocketUsageSession.IDValue,
+        usageFlushTask: Task<Void, Never>,
+        req: Request,
+        user: User,
         logger: Logger
     ) {
         clientWebSocket.onText { _, text in
@@ -338,14 +368,61 @@ struct RequestProxyController: RouteCollection {
         clientWebSocket.onClose.whenComplete { _ in
             upstreamWebSocket.close(promise: nil)
             Task {
-                await finishWebSocketConnection(trafficMeter, logger: logger)
+                await finishWebSocketConnection(
+                    trafficMeter,
+                    usageSessionID: usageSessionID,
+                    usageFlushTask: usageFlushTask,
+                    req: req,
+                    user: user,
+                    logger: logger
+                )
             }
         }
 
         upstreamWebSocket.onClose.whenComplete { _ in
             clientWebSocket.close(promise: nil)
             Task {
-                await finishWebSocketConnection(trafficMeter, logger: logger)
+                await finishWebSocketConnection(
+                    trafficMeter,
+                    usageSessionID: usageSessionID,
+                    usageFlushTask: usageFlushTask,
+                    req: req,
+                    user: user,
+                    logger: logger
+                )
+            }
+        }
+    }
+
+    /// Starts periodic durable billing flushes for an accepted WebSocket connection.
+    private func startWebSocketUsageFlushLoop(
+        req: Request,
+        user: User,
+        sessionID: WebSocketUsageSession.IDValue,
+        trafficMeter: ProxyWebSocketTrafficMeter,
+        clientWebSocket: WebSocket,
+        upstreamWebSocket: WebSocket,
+        logger: Logger
+    ) -> Task<Void, Never> {
+        Task {
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(60))
+                } catch {
+                    return
+                }
+
+                let delta = await trafficMeter.usageDelta()
+                do {
+                    try await flushWebSocketUsageSnapshot(req: req, sessionID: sessionID, delta: delta)
+                    if try await currentWebSocketUsageExceedsActiveGrace(req: req, user: user) {
+                        logger.warning("WebSocket usage exceeded active connection grace; closing connection")
+                        closeWebSocketPair(clientWebSocket, upstreamWebSocket)
+                        return
+                    }
+                } catch {
+                    logger.error("Error flushing WebSocket usage: \(error)")
+                }
             }
         }
     }
@@ -403,9 +480,28 @@ struct RequestProxyController: RouteCollection {
     }
 
     /// Logs a single close summary for a proxied WebSocket connection.
-    private func finishWebSocketConnection(_ trafficMeter: ProxyWebSocketTrafficMeter, logger: Logger) async {
+    private func finishWebSocketConnection(
+        _ trafficMeter: ProxyWebSocketTrafficMeter,
+        usageSessionID: WebSocketUsageSession.IDValue,
+        usageFlushTask: Task<Void, Never>,
+        req: Request,
+        user: User,
+        logger: Logger
+    ) async {
+        usageFlushTask.cancel()
+        await usageFlushTask.value
+
         guard let snapshot = await trafficMeter.finish() else {
             return
+        }
+
+        do {
+            try await closeWebSocketUsageSession(req: req, sessionID: usageSessionID, delta: snapshot.usageDelta)
+            if try await currentWebSocketUsageExceedsActiveGrace(req: req, user: user) {
+                logger.warning("WebSocket usage exceeded active connection grace after final flush")
+            }
+        } catch {
+            logger.error("Error closing WebSocket usage session: \(error)")
         }
 
         logger.info("WebSocket proxy connection closed", metadata: [
@@ -415,7 +511,8 @@ struct RequestProxyController: RouteCollection {
             "clientToUpstreamBytes": .stringConvertible(snapshot.clientToUpstreamBytes),
             "upstreamToClientBytes": .stringConvertible(snapshot.upstreamToClientBytes),
             "clientToUpstreamMessages": .stringConvertible(snapshot.clientToUpstreamMessages),
-            "upstreamToClientMessages": .stringConvertible(snapshot.upstreamToClientMessages)
+            "upstreamToClientMessages": .stringConvertible(snapshot.upstreamToClientMessages),
+            "messageUnits": .stringConvertible(snapshot.messageUnits)
         ])
     }
 
@@ -523,10 +620,12 @@ private actor ProxyWebSocketTrafficMeter {
         let apiKeyID: UUID
         let destinationHost: String
         let durationSeconds: Double
-        let clientToUpstreamBytes: Int
-        let upstreamToClientBytes: Int
-        let clientToUpstreamMessages: Int
-        let upstreamToClientMessages: Int
+        let clientToUpstreamBytes: Int64
+        let upstreamToClientBytes: Int64
+        let clientToUpstreamMessages: Int64
+        let upstreamToClientMessages: Int64
+        let messageUnits: Int64
+        let usageDelta: WebSocketUsageDelta
     }
 
     private let startedAt = Date()
@@ -537,10 +636,16 @@ private actor ProxyWebSocketTrafficMeter {
     private var isFinished = false
     private var pendingClientToUpstreamBytes = 0
     private var pendingUpstreamToClientBytes = 0
-    private var clientToUpstreamBytes = 0
-    private var upstreamToClientBytes = 0
-    private var clientToUpstreamMessages = 0
-    private var upstreamToClientMessages = 0
+    private var clientToUpstreamBytes: Int64 = 0
+    private var upstreamToClientBytes: Int64 = 0
+    private var clientToUpstreamMessages: Int64 = 0
+    private var upstreamToClientMessages: Int64 = 0
+    private var messageUnits: Int64 = 0
+    private var flushedConnectionSeconds: Int64 = 0
+    private var flushedClientToUpstreamBytes: Int64 = 0
+    private var flushedUpstreamToClientBytes: Int64 = 0
+    private var flushedMessageCount: Int64 = 0
+    private var flushedMessageUnits: Int64 = 0
 
     init(apiKeyID: UUID, destinationHost: String, maxBufferedBytesPerDirection: Int) {
         self.apiKeyID = apiKeyID
@@ -550,23 +655,26 @@ private actor ProxyWebSocketTrafficMeter {
 
     /// Reserves pending outbound capacity and records message totals before a frame is written.
     func reserveOutgoingBytes(_ byteCount: Int, direction: ProxyWebSocketDirection) -> Bool {
+        let billableMessageUnits = WebSocketBillingPolicy.messageUnits(for: byteCount)
+
         switch direction {
         case .clientToUpstream:
             guard pendingClientToUpstreamBytes + byteCount <= maxBufferedBytesPerDirection else {
                 return false
             }
             pendingClientToUpstreamBytes += byteCount
-            clientToUpstreamBytes += byteCount
+            clientToUpstreamBytes += Int64(byteCount)
             clientToUpstreamMessages += 1
         case .upstreamToClient:
             guard pendingUpstreamToClientBytes + byteCount <= maxBufferedBytesPerDirection else {
                 return false
             }
             pendingUpstreamToClientBytes += byteCount
-            upstreamToClientBytes += byteCount
+            upstreamToClientBytes += Int64(byteCount)
             upstreamToClientMessages += 1
         }
 
+        messageUnits += billableMessageUnits
         return true
     }
 
@@ -580,12 +688,35 @@ private actor ProxyWebSocketTrafficMeter {
         }
     }
 
+    /// Returns usage accumulated since the previous durable billing flush.
+    func usageDelta() -> WebSocketUsageDelta {
+        let currentConnectionSeconds = max(Int64(Date().timeIntervalSince(startedAt)), 0)
+        let currentMessageCount = clientToUpstreamMessages + upstreamToClientMessages
+
+        let delta = WebSocketUsageDelta(
+            connectionSeconds: max(0, currentConnectionSeconds - flushedConnectionSeconds),
+            messageCount: max(0, currentMessageCount - flushedMessageCount),
+            messageUnits: max(0, messageUnits - flushedMessageUnits),
+            bytesClientToUpstream: max(0, clientToUpstreamBytes - flushedClientToUpstreamBytes),
+            bytesUpstreamToClient: max(0, upstreamToClientBytes - flushedUpstreamToClientBytes)
+        )
+
+        flushedConnectionSeconds = currentConnectionSeconds
+        flushedMessageCount = currentMessageCount
+        flushedMessageUnits = messageUnits
+        flushedClientToUpstreamBytes = clientToUpstreamBytes
+        flushedUpstreamToClientBytes = upstreamToClientBytes
+
+        return delta
+    }
+
     /// Returns the final connection snapshot exactly once.
     func finish() -> Snapshot? {
         guard !isFinished else {
             return nil
         }
         isFinished = true
+        let finalUsageDelta = usageDelta()
 
         return Snapshot(
             apiKeyID: apiKeyID,
@@ -594,7 +725,9 @@ private actor ProxyWebSocketTrafficMeter {
             clientToUpstreamBytes: clientToUpstreamBytes,
             upstreamToClientBytes: upstreamToClientBytes,
             clientToUpstreamMessages: clientToUpstreamMessages,
-            upstreamToClientMessages: upstreamToClientMessages
+            upstreamToClientMessages: upstreamToClientMessages,
+            messageUnits: messageUnits,
+            usageDelta: finalUsageDelta
         )
     }
 }

@@ -22,6 +22,12 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     
     @Field(key: "override_monthly_request_limit")
     var overrideMonthlyRequestLimit: Int?
+
+    @Field(key: "override_monthly_websocket_connection_second_limit")
+    var overrideMonthlyWebSocketConnectionSecondLimit: Int64?
+
+    @Field(key: "override_monthly_websocket_message_unit_limit")
+    var overrideMonthlyWebSocketMessageUnitLimit: Int64?
     
     var monthlyRequestLimit: Int {
         guard let overrideMonthlyRequestLimit else {
@@ -62,6 +68,8 @@ final class User: Model, Authenticatable, @unchecked Sendable {
         self.id = id
         self.clerkID = clerkID
         self.lastAcceptedTOS = lastAcceptedTOS
+        self.overrideMonthlyWebSocketConnectionSecondLimit = nil
+        self.overrideMonthlyWebSocketMessageUnitLimit = nil
     }
     
     func toDTO(on db: any Database) async throws -> UserDTO {
@@ -78,6 +86,7 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
             requestLimit: monthlyRequestLimit,
+            currentWebSocketUsage: try await currentWebSocketUsageDTO(on: db),
             accessKeyLimit: overrideAccessKeyLimit ?? (currentSubscription ?? .free).userApiKeyLimit,
             apiKeyLimit: overrideAPIKeyLimit ?? (currentSubscription ?? .free).keyLimit,
             projectLimit: overrideProjectLimit ?? (currentSubscription ?? .free).projectLimit,

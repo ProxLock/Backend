@@ -41,8 +41,10 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(DeviceCheckKey.migrations)
     app.migrations.add(PlayIntegrityConfig.migrations)
     app.migrations.add(APIKey.migrations)
+    app.migrations.add(WebSocketBillingUserOverrideMigrations.migrations)
     app.migrations.add(MonthlyUserUsageHistory.migrations)
     app.migrations.add(DailyUserUsageHistory.migrations)
+    app.migrations.add(WebSocketUsageSession.migrations)
     try await app.autoMigrate()
     
     // Schedule Jobs

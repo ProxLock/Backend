@@ -16,6 +16,7 @@ struct UserController: RouteCollection {
         adminUserRoute.get(use: self.get)
         adminUserRoute.delete(use: self.delete)
         adminUserRoute.post("override-limit", use: self.overrideLimit)
+        adminUserRoute.post("websocket-override-limit", use: self.overrideWebSocketLimit)
         
         routes.get("users", use: self.index)
     }

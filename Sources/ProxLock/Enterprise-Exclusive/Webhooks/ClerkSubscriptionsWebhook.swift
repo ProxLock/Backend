@@ -106,6 +106,22 @@ enum SubscriptionPlans: String, Codable {
         case .pro: return 25_000
         }
     }
+
+    var webSocketConnectionSecondLimit: Int64 {
+        switch self {
+        case .free: return 36_000
+        case .plus: return 9_000_000
+        case .pro: return 36_000_000
+        }
+    }
+
+    var webSocketMessageUnitLimit: Int64 {
+        switch self {
+        case .free: return 25_000
+        case .plus: return 1_000_000
+        case .pro: return 5_000_000
+        }
+    }
     
     var userApiKeyLimit: Int {
         switch self {

@@ -8,7 +8,7 @@
 import Vapor
 
 extension RequestProxyController {
-    func validateUserLimitAllowsRequest(req: Request, dbKey: APIKey, with user: User) async throws -> Bool {
+    func validateHttpUserLimitAllowsRequest(req: Request, dbKey: APIKey, with user: User) async throws -> Bool {
         // Limit of less than or equal to -1 is Infinite
         if let overrideMonthlyRequestLimit = user.overrideMonthlyRequestLimit, overrideMonthlyRequestLimit <= -1 {
             return true
@@ -19,7 +19,7 @@ extension RequestProxyController {
         return currentRecord.requestCount < user.monthlyRequestLimit
     }
     
-    func addToUsersRequestHistory(req: Request, dbKey: APIKey, with user: User) async throws {
+    func addToUsersHttpRequestHistory(req: Request, dbKey: APIKey, with user: User) async throws {
         // Get Historical Log
         let monthlyEntry = try await Cache.shared.getOrCreateMonthlyUserUsageHistory(.now, userID: user.requireID(), on: req.db)
         
@@ -31,4 +31,75 @@ extension RequestProxyController {
         dailyEntry.requestCount += 1
         try await dailyEntry.save(on: req.db)
     }
+
+    func validateUserAllowsWebSocketStart(req: Request, dbKey: APIKey, with user: User) async throws -> Bool {
+        let totals = try await user.currentWebSocketUsageTotals(on: req.db)
+        return WebSocketBillingPolicy.allowsNewConnection(usage: totals.connectionSeconds, limit: user.monthlyWebSocketConnectionSecondLimit) &&
+            WebSocketBillingPolicy.allowsNewConnection(usage: totals.messageUnits, limit: user.monthlyWebSocketMessageUnitLimit)
+    }
+
+    func createWebSocketUsageSession(
+        req: Request,
+        dbKey: APIKey,
+        user: User,
+        destinationHost: String
+    ) async throws -> WebSocketUsageSession {
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.timeZone = .gmt
+
+        let session = WebSocketUsageSession(
+            userID: try user.requireID(),
+            apiKeyID: try dbKey.requireID(),
+            destinationHost: destinationHost,
+            billingMonth: Date().startOfMonth(calendar: calendar)
+        )
+        try await session.save(on: req.db)
+        return session
+    }
+
+    func flushWebSocketUsageSnapshot(
+        req: Request,
+        sessionID: WebSocketUsageSession.IDValue,
+        delta: WebSocketUsageDelta
+    ) async throws {
+        guard !delta.isEmpty else {
+            return
+        }
+
+        guard let session = try await WebSocketUsageSession.find(sessionID, on: req.db) else {
+            throw Abort(.notFound, reason: "WebSocket usage session not found")
+        }
+
+        apply(delta, to: session)
+        try await session.save(on: req.db)
+    }
+
+    func closeWebSocketUsageSession(
+        req: Request,
+        sessionID: WebSocketUsageSession.IDValue,
+        delta: WebSocketUsageDelta
+    ) async throws {
+        guard let session = try await WebSocketUsageSession.find(sessionID, on: req.db) else {
+            throw Abort(.notFound, reason: "WebSocket usage session not found")
+        }
+
+        apply(delta, to: session)
+        session.closedAt = .now
+        try await session.save(on: req.db)
+    }
+
+    func currentWebSocketUsageExceedsActiveGrace(req: Request, user: User) async throws -> Bool {
+        let totals = try await user.currentWebSocketUsageTotals(on: req.db)
+        return !WebSocketBillingPolicy.allowsActiveConnection(usage: totals.connectionSeconds, limit: user.monthlyWebSocketConnectionSecondLimit) ||
+            !WebSocketBillingPolicy.allowsActiveConnection(usage: totals.messageUnits, limit: user.monthlyWebSocketMessageUnitLimit)
+    }
+
+    private func apply(_ delta: WebSocketUsageDelta, to session: WebSocketUsageSession) {
+        session.connectionSeconds += delta.connectionSeconds
+        session.messageCount += delta.messageCount
+        session.messageUnits += delta.messageUnits
+        session.bytesClientToUpstream += delta.bytesClientToUpstream
+        session.bytesUpstreamToClient += delta.bytesUpstreamToClient
+    }
+
 }
