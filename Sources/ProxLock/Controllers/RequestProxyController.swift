@@ -1,4 +1,5 @@
 import Fluent
+import AsyncHTTPClient
 import Vapor
 
 #if canImport(FoundationNetworking)
@@ -33,9 +34,9 @@ struct RequestProxyController: RouteCollection {
     /// 
     /// - Parameters:
     ///   - req: The HTTP request containing the proxy headers and request body
-    /// - Returns: ``ClientResponse`` from the target service
+    /// - Returns: ``Response`` streamed from the target service
     @Sendable
-    func proxyRequest(req: Request) async throws -> ClientResponse {
+    func proxyRequest(req: Request) async throws -> Response {
         var headers = req.headers
         guard let associationIdString = headers.first(name: ProxyHeaderKeys.associationId) else {
             throw Abort(.badRequest, reason: ProxyError.associationIdMissing.localizedDescription)
@@ -120,8 +121,14 @@ struct RequestProxyController: RouteCollection {
         for header in headers where ((dbKey.whitelistedHeaders ?? []).map({ $0.lowercased() }).contains(header.name.lowercased()) && header.value.contains(ProxyHeaderKeys.partialKeyIdentifier)) {
             headers.replaceOrAdd(name: header.name, value: header.value.replacingOccurrences(of: "\(ProxyHeaderKeys.partialKeyIdentifier)\(userPartialKey)%", with: completeKey))
         }
+        removeHopByHopHeaders(from: &headers)
         
-        let request = ClientRequest(method: .RAW(value: httpMethod), url: URI(string: destinationString), headers: headers, body: req.body.data)
+        var request = HTTPClientRequest(url: destinationString)
+        request.method = .RAW(value: httpMethod)
+        request.headers = headers
+        if let body = req.body.data {
+            request.body = .bytes(body)
+        }
         
         Task {
             do {
@@ -131,7 +138,19 @@ struct RequestProxyController: RouteCollection {
             }
         }
         
-        return try await req.client.send(request)
+        let upstreamResponse = try await req.application.http.client.shared.execute(request)
+        var responseHeaders = upstreamResponse.headers
+        removeHopByHopHeaders(from: &responseHeaders)
+        
+        return Response(
+            status: upstreamResponse.status,
+            headers: responseHeaders,
+            body: .init(managedAsyncStream: { writer in
+                for try await chunk in upstreamResponse.body {
+                    try await writer.write(.buffer(chunk))
+                }
+            })
+        )
     }
     
     private func getHostFromString(_ string: String) -> String? {
@@ -140,6 +159,35 @@ struct RequestProxyController: RouteCollection {
     
     private func getPathFromString(_ string: String) -> String? {
         URL(string: "http://\(string.replacingOccurrences(of: "http://", with: "").replacingOccurrences(of: "https://", with: ""))")?.path()
+    }
+    
+    private func removeHopByHopHeaders(from headers: inout HTTPHeaders) {
+        let connectionHeaderNames = headers
+            .filter { $0.name.lowercased() == "connection" }
+            .flatMap { header in
+                header.value
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+        
+        for headerName in connectionHeaderNames {
+            headers.remove(name: headerName)
+        }
+        
+        for headerName in [
+            "Connection",
+            "Keep-Alive",
+            "Proxy-Connection",
+            "Proxy-Authenticate",
+            "Proxy-Authorization",
+            "TE",
+            "Trailer",
+            "Transfer-Encoding",
+            "Upgrade"
+        ] {
+            headers.remove(name: headerName)
+        }
     }
 }
 
