@@ -180,6 +180,7 @@ struct RequestProxyController: RouteCollection {
         for headerName in [
             "Connection",
             "Keep-Alive",
+            "Proxy-Connection",
             "Proxy-Authenticate",
             "Proxy-Authorization",
             "TE",
