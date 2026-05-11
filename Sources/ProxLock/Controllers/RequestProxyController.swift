@@ -138,10 +138,7 @@ struct RequestProxyController: RouteCollection {
             }
         }
         
-        let upstreamResponse = try await req.application.http.client.shared.execute(
-            request,
-            timeout: .seconds(300)
-        )
+        let upstreamResponse = try await req.application.http.client.shared.execute(request)
         var responseHeaders = upstreamResponse.headers
         removeHopByHopHeaders(from: &responseHeaders)
         
