@@ -8,7 +8,8 @@ extension APIKey: Migratable {
         AddRateLimit(),
         AddAllowsWeb(),
         AddDirectLinkToUser(),
-        AddDirectLinkToDeviceValidation()
+        AddDirectLinkToDeviceValidation(),
+        AddWhitelistedHeaders()
     ]
     
     struct CreateMigration: AsyncMigration {
@@ -108,6 +109,20 @@ extension APIKey: Migratable {
             try await database.schema(APIKey.schema)
                 .deleteField("device_check_id")
                 .deleteField("play_integrity_id")
+                .update()
+        }
+    }
+    
+    struct AddWhitelistedHeaders: AsyncMigration {
+        func prepare(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .field("whitelisted_headers", .array(of: .string))
+                .update()
+        }
+
+        func revert(on database: any Database) async throws {
+            try await database.schema(APIKey.schema)
+                .deleteField("whitelisted_headers")
                 .update()
         }
     }

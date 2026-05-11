@@ -19,11 +19,26 @@ final class User: Model, Authenticatable, @unchecked Sendable {
     @Field(key: "clerk_id")
     var clerkID: String
     
+    @Field(key: "last_accepted_tos")
+    var lastAcceptedTOS: Date?
+    
     @OptionalEnum(key: "current_subscription")
     var currentSubscription: SubscriptionPlans?
     
     @Field(key: "override_monthly_request_limit")
     var overrideMonthlyRequestLimit: Int?
+    
+    var monthlyRequestLimit: Int {
+        guard let overrideMonthlyRequestLimit else {
+            return (currentSubscription ?? .free).requestLimit
+        }
+        
+        guard overrideMonthlyRequestLimit >= 0 else {
+            return overrideMonthlyRequestLimit
+        }
+        
+        return max(overrideMonthlyRequestLimit, (currentSubscription ?? .free).requestLimit)
+    }
     
     @Field(key: "override_access_key_limit")
     var overrideAccessKeyLimit: Int?
@@ -48,16 +63,17 @@ final class User: Model, Authenticatable, @unchecked Sendable {
 
     init() { }
 
-    init(id: UUID? = nil, clerkID: String) {
+    init(id: UUID? = nil, clerkID: String, lastAcceptedTOS: Date? = nil) {
         self.id = id
         self.clerkID = clerkID
+        self.lastAcceptedTOS = lastAcceptedTOS
     }
     
     func toDTO(on db: any Database) async throws -> UserDTO {
         try await $projects.load(on: db)
         let projects = try await $projects.get(on: db)
         let projectsDTOs = try await projects.asyncMap({ try await $0.toDTO(on: db) })
-        let currentRecord = try await getOrCreateCurrentMonthlyHistoricalRecord(db: db)
+        let currentRecord = try await Cache.shared.getOrCreateMonthlyUserUsageHistory(.now, userID: requireID(), on: db)
         try await $accessKey.load(on: db)
         let apiKeys = try await $accessKey.get(on: db)
         
@@ -66,41 +82,14 @@ final class User: Model, Authenticatable, @unchecked Sendable {
             projects: projectsDTOs,
             currentSubscription: currentSubscription ?? .free,
             currentRequestUsage: currentRecord.requestCount,
-            requestLimit: overrideMonthlyRequestLimit ?? (currentSubscription ?? .free).requestLimit,
+            requestLimit: monthlyRequestLimit,
             accessKeyLimit: overrideAccessKeyLimit ?? (currentSubscription ?? .free).userApiKeyLimit,
             apiKeyLimit: overrideAPIKeyLimit ?? (currentSubscription ?? .free).keyLimit,
             projectLimit: overrideProjectLimit ?? (currentSubscription ?? .free).projectLimit,
             accessKeys: apiKeys.compactMap({ try? $0.toDTO() }),
-            isAdmin: Constants.adminClerkIDs.contains(self.clerkID)
+            isAdmin: Constants.adminClerkIDs.contains(self.clerkID),
+            lastAcceptedTOS: lastAcceptedTOS?.timeIntervalSince1970
         )
-    }
-    
-    func getOrCreateCurrentMonthlyHistoricalRecord(req: Request) async throws -> MonthlyUserUsageHistory {
-        try await getOrCreateCurrentMonthlyHistoricalRecord(db: req.db)
-    }
-    
-    func getOrCreateCurrentMonthlyHistoricalRecord(db: any Database) async throws -> MonthlyUserUsageHistory {
-        // Get Historical Log
-        var calendar = Calendar.autoupdatingCurrent
-        calendar.timeZone = .gmt
-        
-        var historyEntry = try await MonthlyUserUsageHistory.query(on: db).filter(\.$month == Date().startOfMonth(calendar: calendar)).filter(\.$user.$id == requireID()).with(\.$user).first()
-        
-        if historyEntry == nil {
-            let newEntry = MonthlyUserUsageHistory(requestCount: 0, subscription: currentSubscription ?? .free, month: Date().startOfMonth(calendar: calendar))
-            
-            newEntry.$user.id = try requireID()
-            
-            try await newEntry.save(on: db)
-            
-            historyEntry = newEntry
-        }
-        
-        guard let historyEntry else {
-            throw Abort(.internalServerError)
-        }
-        
-        return historyEntry
     }
     
     final class AccessKey: Model, Authenticatable, @unchecked Sendable {

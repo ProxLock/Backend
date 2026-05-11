@@ -26,6 +26,22 @@ struct Authenticator: AsyncBearerAuthenticator {
     }
     
     func authenticate(bearer: BearerAuthorization, for request: Request) async throws {
+        try await innerAuthenticate(bearer: bearer, for: request)
+        
+        guard !(request.url.path.hasSuffix("/me") || request.url.path.hasSuffix("/accept-tos")) else {
+            return
+        }
+        
+        // Check for TOS Acceptance if for user all APIs except /me
+        let user = try request.auth.require(User.self)
+        guard let lastAcceptedTOS = user.lastAcceptedTOS, lastAcceptedTOS >= Constants.termsLastUpdated else {
+            throw Abort(.forbidden, headers: .init([("Code", "-1")]), reason: "You must accept the Terms of Service to use this API. Please do so at https://app.proxlock.dev")
+        }
+        
+        return
+    }
+    
+    func innerAuthenticate(bearer: BearerAuthorization, for request: Request) async throws {
         if bearer.token.hasPrefix("sk_") {
             try await handleAPIKeyAuth(bearer: bearer, for: request)
             return
@@ -54,9 +70,7 @@ struct Authenticator: AsyncBearerAuthenticator {
         guard let key = try await getAPIKey(bearer: bearer, for: request) else {
             throw Errors.userNotFound
         }
-        
-        try await key.$user.load(on: request.db)
-        let user = try await key.$user.get(on: request.db)
+        let user = try await key.$user.cachedGet(on: request.db)
         
         try validateAdminAccess(for: request, with: user.clerkID)
         guard try await !didImpersonateFromAdmin(for: request, adminUserID: user.clerkID) else {
@@ -76,7 +90,7 @@ struct Authenticator: AsyncBearerAuthenticator {
                 return
             }
             
-            guard let user = try await User.query(on: request.db).filter(\.$clerkID == claims.id).first() else {
+            guard let user = try await Cache.shared.getUser(clerkID: claims.id, on: request.db) else {
                 throw Errors.userNotFound
             }
             request.auth.login(user)
@@ -101,7 +115,7 @@ struct Authenticator: AsyncBearerAuthenticator {
             return false
         }
         
-        guard let user = try await User.query(on: request.db).filter(\.$clerkID == userID).first() else {
+        guard let user = try await Cache.shared.getUser(clerkID: userID, on: request.db) else {
             throw Errors.userNotFound
         }
         

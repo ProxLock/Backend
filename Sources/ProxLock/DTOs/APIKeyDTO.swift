@@ -8,6 +8,7 @@ struct APIKeyRecievingDTO: Content {
     let rateLimit: Int?
     let allowsWeb: Bool?
     let whitelistedUrls: [String]?
+    let whitelistedHeaders: [String]?
 }
 
 struct APIKeySendingDTO: Content {
@@ -18,4 +19,5 @@ struct APIKeySendingDTO: Content {
     let rateLimit: Int?
     let allowsWeb: Bool
     let whitelistedUrls: [String]
+    let whitelistedHeaders: [String]
 }

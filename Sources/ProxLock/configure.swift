@@ -2,6 +2,7 @@ import NIOSSL
 import Fluent
 import FluentPostgresDriver
 import Vapor
+import Queues
 
 // configures your application
 public func configure(_ app: Application) async throws {
@@ -12,7 +13,7 @@ public func configure(_ app: Application) async throws {
     app.middleware.use(corsMiddleware, at: .beginning)
     
     app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
-        hostname: Environment.get("DATABASE_HOST") ?? "localhost",
+        hostname: Constants.dbHostname,
         port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
         username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
         password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
@@ -23,16 +24,24 @@ public func configure(_ app: Application) async throws {
     let jsonDecoder = JSONDecoder()
     jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
     ContentConfiguration.global.use(decoder: jsonDecoder, for: .json)
+    
+    // Set Request Body Maximum
+    app.routes.defaultMaxBodySize = "100mb"
 
+    // Set Migrations
     app.migrations.add(User.migrations)
     app.migrations.add(User.AccessKey.migrations)
     app.migrations.add(Project.migrations)
-    app.migrations.add(APIKey.migrations)
     app.migrations.add(DeviceCheckKey.migrations)
     app.migrations.add(PlayIntegrityConfig.migrations)
+    app.migrations.add(APIKey.migrations)
     app.migrations.add(MonthlyUserUsageHistory.migrations)
     app.migrations.add(DailyUserUsageHistory.migrations)
     try await app.autoMigrate()
+    
+    // Schedule Jobs
+    app.queues.schedule(CacheCleanupJob()).minutely()
+    try app.queues.startScheduledJobs()
 
     // register routes
     try routes(app)

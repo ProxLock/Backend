@@ -28,6 +28,9 @@ final class APIKey: Model, @unchecked Sendable {
     @Field(key: "whitelisted_urls")
     var whitelistedUrls: [String]?
     
+    @Field(key: "whitelisted_headers")
+    var whitelistedHeaders: [String]?
+    
     @Parent(key: "project_id")
     var project: Project
     
@@ -42,7 +45,7 @@ final class APIKey: Model, @unchecked Sendable {
 
     init() { }
 
-    init(id: UUID? = nil, name: String, description: String, partialKey: String, rateLimit: Int? = nil, allowsWeb: Bool, whitelistedUrls: [String]) {
+    init(id: UUID? = nil, name: String, description: String, partialKey: String, rateLimit: Int? = nil, allowsWeb: Bool, whitelistedUrls: [String], whitelistedHeaders: [String]) {
         self.id = id
         self.name = name
         self.userDescription = description
@@ -56,6 +59,7 @@ final class APIKey: Model, @unchecked Sendable {
         
         self.allowsWeb = allowsWeb
         self.whitelistedUrls = whitelistedUrls
+        self.whitelistedHeaders = whitelistedHeaders
     }
     
     func toDTO() -> APIKeySendingDTO {
@@ -65,7 +69,8 @@ final class APIKey: Model, @unchecked Sendable {
             description: userDescription,
             rateLimit: rateLimit,
             allowsWeb: allowsWeb,
-            whitelistedUrls: whitelistedUrls ?? []
+            whitelistedUrls: whitelistedUrls ?? [],
+            whitelistedHeaders: whitelistedHeaders ?? []
         )
     }
     

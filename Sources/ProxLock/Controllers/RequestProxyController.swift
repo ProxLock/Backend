@@ -1,4 +1,6 @@
 import Fluent
+import AsyncHTTPClient
+import NIOCore
 import Vapor
 
 #if canImport(FoundationNetworking)
@@ -33,13 +35,17 @@ struct RequestProxyController: RouteCollection {
     /// 
     /// - Parameters:
     ///   - req: The HTTP request containing the proxy headers and request body
-    /// - Returns: ``ClientResponse`` from the target service
+    /// - Returns: ``Response`` streamed from the target service
     @Sendable
-    func proxyRequest(req: Request) async throws -> ClientResponse {
+    func proxyRequest(req: Request) async throws -> Response {
         var headers = req.headers
-        guard let associationId = headers.first(name: ProxyHeaderKeys.associationId) else {
+        guard let associationIdString = headers.first(name: ProxyHeaderKeys.associationId) else {
             throw Abort(.badRequest, reason: ProxyError.associationIdMissing.localizedDescription)
         }
+        guard let associationId = UUID(uuidString: associationIdString) else {
+            throw Abort(.badRequest, reason: "Unexpected error parsing association ID from request headers.")
+        }
+        
         guard let partialKey = headers.first(where: { $0.value.contains(ProxyHeaderKeys.partialKeyIdentifier)}) else {
             throw Abort(.badRequest, reason: ProxyError.partialKeyMissing.localizedDescription)
         }
@@ -50,6 +56,13 @@ struct RequestProxyController: RouteCollection {
             throw Abort(.badRequest, reason: ProxyError.destinationMissing.localizedDescription)
         }
         
+        guard let destinationHost = destinationUrl.host(),
+                !Constants.blacklistedProxyDestinations.contains(destinationHost),
+              !Constants.blacklistedProxyDestinations.contains(destinationString.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
+        else {
+            throw Abort(.forbidden, reason: "Proxying to this destination is not permitted")
+        }
+        
         headers.remove(name: ProxyHeaderKeys.destination)
         headers.remove(name: ProxyHeaderKeys.httpMethod)
         headers.remove(name: ProxyHeaderKeys.associationId)
@@ -57,12 +70,24 @@ struct RequestProxyController: RouteCollection {
         headers.remove(name: "Host")
         
         // Get Full Key
-        guard let dbKey = try await APIKey.find(UUID(uuidString: associationId), on: req.db) else {
+        guard let dbKey = try await Cache.shared.getAPIKey(associationId, on: req.db) else {
             throw Abort(.badRequest, reason: "Key was not found")
+        }
+        
+        guard !(dbKey.whitelistedUrls ?? []).isEmpty else {
+            throw Abort(.forbidden, reason: "No destinations have been whitelisted for this API key. Please configure whitelisted destinations in your API key settings.")
+        }
+        
+        guard !(dbKey.whitelistedHeaders ?? []).isEmpty else {
+            throw Abort(.forbidden, reason: "No headers have been whitelisted for this API key. Please configure whitelisted headers in your API key settings.")
         }
         
         // Get User
         let user = try await apiKeyDataLinkingMigrationController.getUser(forAPIKey: dbKey, on: req)
+        
+        guard let lastAcceptedTOS = user.lastAcceptedTOS, lastAcceptedTOS >= Constants.minimumTermsDateForProxy else {
+            throw Abort(.forbidden, headers: .init([("Code", "-1")]), reason: "The developer must accept the ProxLock Terms of Service to use this API. Please do so at https://app.proxlock.dev")
+        }
         
         // Validate user is under request limit
         guard try await validateUserLimitAllowsRequest(req: req, dbKey: dbKey, with: user) else {
@@ -94,11 +119,17 @@ struct RequestProxyController: RouteCollection {
         }
         let userPartialKey = String(partialKey.value[userPartialKeyRange])
         let completeKey = try KeySplitter.reconstruct(serverShareB64: dbKey.partialKey, clientShareB64: userPartialKey)
-        for header in headers where header.value.contains(ProxyHeaderKeys.partialKeyIdentifier) {
+        for header in headers where ((dbKey.whitelistedHeaders ?? []).map({ $0.lowercased() }).contains(header.name.lowercased()) && header.value.contains(ProxyHeaderKeys.partialKeyIdentifier)) {
             headers.replaceOrAdd(name: header.name, value: header.value.replacingOccurrences(of: "\(ProxyHeaderKeys.partialKeyIdentifier)\(userPartialKey)%", with: completeKey))
         }
+        removeHopByHopHeaders(from: &headers)
         
-        let request = ClientRequest(method: .RAW(value: httpMethod), url: URI(string: destinationString), headers: headers, body: req.body.data)
+        var request = HTTPClientRequest(url: destinationString)
+        request.method = .RAW(value: httpMethod)
+        request.headers = headers
+        if let body = req.body.data {
+            request.body = .bytes(body)
+        }
         
         Task {
             do {
@@ -108,31 +139,23 @@ struct RequestProxyController: RouteCollection {
             }
         }
         
-        return try await req.client.send(request)
-    }
-    
-    private func validateUserLimitAllowsRequest(req: Request, dbKey: APIKey, with user: User) async throws -> Bool {
-        // Limit of less than or equal to -1 is Infinite
-        if let overrideMonthlyRequestLimit = user.overrideMonthlyRequestLimit, overrideMonthlyRequestLimit <= -1 {
-            return true
-        }
+        let upstreamResponse = try await req.application.http.client.shared.execute(
+            request,
+            deadline: .distantFuture,
+            logger: req.logger
+        )
+        var responseHeaders = upstreamResponse.headers
+        removeHopByHopHeaders(from: &responseHeaders)
         
-        let currentRecord = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
-        
-        return currentRecord.requestCount < user.overrideMonthlyRequestLimit ?? (user.currentSubscription ?? .free).requestLimit
-    }
-    
-    private func addToUsersRequestHistory(req: Request, dbKey: APIKey, with user: User) async throws {
-        // Get Historical Log
-        let monthlyEntry = try await user.getOrCreateCurrentMonthlyHistoricalRecord(req: req)
-        
-        // Update Entry
-        monthlyEntry.requestCount += 1
-        try await monthlyEntry.save(on: req.db)
-        
-        let dailyEntry = try await monthlyEntry.getOrCreateCurrentDailyHistoricalRecord(req: req)
-        dailyEntry.requestCount += 1
-        try await dailyEntry.save(on: req.db)
+        return Response(
+            status: upstreamResponse.status,
+            headers: responseHeaders,
+            body: .init(managedAsyncStream: { writer in
+                for try await chunk in upstreamResponse.body {
+                    try await writer.write(.buffer(chunk))
+                }
+            })
+        )
     }
     
     private func getHostFromString(_ string: String) -> String? {
@@ -141,6 +164,35 @@ struct RequestProxyController: RouteCollection {
     
     private func getPathFromString(_ string: String) -> String? {
         URL(string: "http://\(string.replacingOccurrences(of: "http://", with: "").replacingOccurrences(of: "https://", with: ""))")?.path()
+    }
+    
+    private func removeHopByHopHeaders(from headers: inout HTTPHeaders) {
+        let connectionHeaderNames = headers
+            .filter { $0.name.lowercased() == "connection" }
+            .flatMap { header in
+                header.value
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+        
+        for headerName in connectionHeaderNames {
+            headers.remove(name: headerName)
+        }
+        
+        for headerName in [
+            "Connection",
+            "Keep-Alive",
+            "Proxy-Connection",
+            "Proxy-Authenticate",
+            "Proxy-Authorization",
+            "TE",
+            "Trailer",
+            "Transfer-Encoding",
+            "Upgrade"
+        ] {
+            headers.remove(name: headerName)
+        }
     }
 }
 

@@ -9,6 +9,7 @@ let package = Package(
     dependencies: [
         // 💧 A server-side Swift web framework.
         .package(url: "https://github.com/vapor/vapor.git", from: "4.115.0"),
+        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.28.0"),
         // 🗄 An ORM for SQL and NoSQL databases.
         .package(url: "https://github.com/vapor/fluent.git", from: "4.9.0"),
         // 🐘 Fluent driver for Postgres.
@@ -19,6 +20,7 @@ let package = Package(
         .package(url: "https://github.com/mcrich23/vapordevicecheck.git", from: "1.1.3"),
         .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),
         .package(url: "https://github.com/mcrich23/google-cloud-kit.git", branch: "main"),
+        .package(url: "https://github.com/vapor/queues.git", from: "1.18.0"),
     ],
     targets: [
         .executableTarget(
@@ -27,12 +29,14 @@ let package = Package(
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "Vapor", package: "vapor"),
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "JWT", package: "jwt"),
                 .product(name: "VaporDeviceCheck", package: "VaporDeviceCheck"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "GoogleCloudKit", package: "google-cloud-kit"),
+                .product(name: "Queues", package: "queues"),
             ],
             swiftSettings: swiftSettings
         )

@@ -16,6 +16,13 @@ struct PlayIntegrityConfigController: RouteCollection {
         keys.put(use: self.link)
         keys.get(use: self.get)
         keys.delete(use: self.delete)
+        
+        let adminEndpoint = routes.grouped(":userID", "projects", ":projectID", "play-integrity")
+        adminEndpoint.post(use: self.create)
+        adminEndpoint.patch(use: self.update)
+        adminEndpoint.put(use: self.link)
+        adminEndpoint.get(use: self.get)
+        adminEndpoint.delete(use: self.delete)
     }
 
     /// GET /me/play-integrity
@@ -66,14 +73,12 @@ struct PlayIntegrityConfigController: RouteCollection {
     func create(req: Request) async throws -> PlayIntegrityConfigSendingDTO {
         let user = try req.auth.require(User.self)
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-            let project = try await Project.find(projectID, on: req.db)
+              let project = try await Cache.shared.getProject(projectID, on: req.db)
         else {
             throw Abort(.notFound)
         }
 
-        try await project.$user.load(on: req.db)
-
-        guard try await user.requireID() == project.$user.get(on: req.db).requireID() else {
+        guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
         }
 
@@ -110,12 +115,11 @@ struct PlayIntegrityConfigController: RouteCollection {
         let user = try req.auth.require(User.self)
         let dto = try req.content.decode(PlayIntegrityConfigRecievingDTO.self)
 
-        guard let project = try await Project.find(req.parameters.require("projectID"), on: req.db) else {
+        guard let project = try await Cache.shared.getProject(req.parameters.require("projectID"), on: req.db) else {
             throw Abort(.notFound)
         }
 
-        try await project.$user.load(on: req.db)
-        guard try await project.$user.get(on: req.db).requireID() == user.requireID() else {
+        guard try await project.$user.cachedGet(on: req.db).requireID() == user.requireID() else {
             throw Abort(.notFound)
         }
 
@@ -159,12 +163,11 @@ struct PlayIntegrityConfigController: RouteCollection {
         let user = try req.auth.require(User.self)
         let dto = try req.content.decode(PlayIntegrityConfigLinkRecievingDTO.self)
 
-        guard let project = try await Project.find(dto.projectID, on: req.db) else {
+        guard let project = try await Cache.shared.getProject(dto.projectID, on: req.db) else {
             throw Abort(.notFound)
         }
-
-        try await project.$user.load(on: req.db)
-        guard try await project.$user.get(on: req.db).requireID() == user.requireID() else {
+        
+        guard try await project.$user.cachedGet(on: req.db).requireID() == user.requireID() else {
             throw Abort(.notFound)
         }
 
@@ -176,14 +179,12 @@ struct PlayIntegrityConfigController: RouteCollection {
         }
 
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-            let project = try await Project.find(projectID, on: req.db)
+            let project = try await Cache.shared.getProject(projectID, on: req.db)
         else {
             throw Abort(.notFound)
         }
 
-        try await project.$user.load(on: req.db)
-
-        guard try await user.requireID() == project.$user.get(on: req.db).requireID() else {
+        guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
         }
 
@@ -209,14 +210,12 @@ struct PlayIntegrityConfigController: RouteCollection {
     func get(req: Request) async throws -> PlayIntegrityConfigSendingDTO {
         let user = try req.auth.require(User.self)
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-            let project = try await Project.find(projectID, on: req.db)
+            let project = try await Cache.shared.getProject(projectID, on: req.db)
         else {
             throw Abort(.notFound)
         }
 
-        try await project.$user.load(on: req.db)
-
-        guard try await user.requireID() == project.$user.get(on: req.db).requireID() else {
+        guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
         }
 
@@ -246,14 +245,12 @@ struct PlayIntegrityConfigController: RouteCollection {
     func delete(req: Request) async throws -> HTTPStatus {
         let user = try req.auth.require(User.self)
         guard let projectID = req.parameters.get("projectID", as: UUID.self),
-            let project = try await Project.find(projectID, on: req.db)
+            let project = try await Cache.shared.getProject(projectID, on: req.db)
         else {
             throw Abort(.notFound)
         }
 
-        try await project.$user.load(on: req.db)
-
-        guard try await user.requireID() == project.$user.get(on: req.db).requireID() else {
+        guard try await user.requireID() == project.$user.cachedGet(on: req.db).requireID() else {
             throw Abort(.notFound)
         }
 
