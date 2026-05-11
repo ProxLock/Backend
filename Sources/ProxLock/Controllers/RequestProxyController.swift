@@ -121,6 +121,7 @@ struct RequestProxyController: RouteCollection {
         for header in headers where ((dbKey.whitelistedHeaders ?? []).map({ $0.lowercased() }).contains(header.name.lowercased()) && header.value.contains(ProxyHeaderKeys.partialKeyIdentifier)) {
             headers.replaceOrAdd(name: header.name, value: header.value.replacingOccurrences(of: "\(ProxyHeaderKeys.partialKeyIdentifier)\(userPartialKey)%", with: completeKey))
         }
+        removeHopByHopHeaders(from: &headers)
         
         var request = HTTPClientRequest(url: destinationString)
         request.method = .RAW(value: httpMethod)
