@@ -1,5 +1,6 @@
 import Fluent
 import AsyncHTTPClient
+import NIOCore
 import Vapor
 
 #if canImport(FoundationNetworking)
@@ -138,7 +139,11 @@ struct RequestProxyController: RouteCollection {
             }
         }
         
-        let upstreamResponse = try await req.application.http.client.shared.execute(request)
+        let upstreamResponse = try await req.application.http.client.shared.execute(
+            request,
+            deadline: .distantFuture,
+            logger: req.logger
+        )
         var responseHeaders = upstreamResponse.headers
         removeHopByHopHeaders(from: &responseHeaders)
         
