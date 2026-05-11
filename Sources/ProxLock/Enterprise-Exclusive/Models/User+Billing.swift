@@ -61,14 +61,14 @@ extension User {
                 .filter(\.$user.$id == userID)
                 .filter(\.$billingMonth == billingMonth)
         }
-
+        
         return WebSocketUsageTotals(
             connectionCount: Int64(try await monthlyQuery().count()),
-            connectionSeconds: try await monthlyQuery().sum(\.$connectionSeconds) ?? 0,
-            messageCount: try await monthlyQuery().sum(\.$messageCount) ?? 0,
-            messageUnits: try await monthlyQuery().sum(\.$messageUnits) ?? 0,
-            bytesClientToUpstream: try await monthlyQuery().sum(\.$bytesClientToUpstream) ?? 0,
-            bytesUpstreamToClient: try await monthlyQuery().sum(\.$bytesUpstreamToClient) ?? 0
+            connectionSeconds: Int64(try await monthlyQuery().sum(\.$connectionSeconds, as: Double.self) ?? 0),
+            messageCount: Int64(try await monthlyQuery().sum(\.$messageCount, as: Double.self) ?? 0),
+            messageUnits: Int64(try await monthlyQuery().sum(\.$messageUnits, as: Double.self) ?? 0),
+            bytesClientToUpstream: Int64(try await monthlyQuery().sum(\.$bytesClientToUpstream, as: Double.self) ?? 0),
+            bytesUpstreamToClient: Int64(try await monthlyQuery().sum(\.$bytesUpstreamToClient, as: Double.self) ?? 0)
         )
     }
 
@@ -104,5 +104,13 @@ extension User {
         }
         
         return historyEntry
+    }
+}
+
+extension QueryBuilder {
+    public func sum<Field, Result>(_ key: KeyPath<Model, Field>, as type: Result.Type = Result.self) async throws -> Result?
+    where Field: QueryableProperty, Field.Model == Model, Result: Sendable, Result: Codable
+    {
+        try await self.aggregate(.sum, key, as: type)
     }
 }
