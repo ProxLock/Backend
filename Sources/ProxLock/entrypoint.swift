@@ -23,11 +23,11 @@ enum Entrypoint {
             try await app.execute()
         } catch {
             app.logger.report(error: error)
-            try? await BillingLifecycle.closeWebSocketUsageSessions(app)
+            await BillingLifecycle.closeWebSocketUsageSessions(app)
             try? await app.asyncShutdown()
             throw error
         }
-        try await BillingLifecycle.closeWebSocketUsageSessions(app)
+        await BillingLifecycle.closeWebSocketUsageSessions(app)
         try await app.asyncShutdown()
     }
 }
