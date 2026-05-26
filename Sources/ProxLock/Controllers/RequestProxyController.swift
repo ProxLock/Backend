@@ -57,8 +57,8 @@ struct RequestProxyController: RouteCollection {
         }
         
         guard let destinationHost = destinationUrl.host(),
-                !Constants.blacklistedProxyDestinations.contains(destinationHost),
-              !Constants.blacklistedProxyDestinations.contains(destinationString.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
+                !Constants.isBlacklistedProxyDestination(destinationHost),
+              !Constants.isBlacklistedProxyDestination(destinationString.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
         else {
             throw Abort(.forbidden, reason: "Proxying to this destination is not permitted")
         }

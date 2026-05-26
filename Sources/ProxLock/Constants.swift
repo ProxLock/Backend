@@ -12,8 +12,17 @@ struct Constants {
     static let clerkWebhookSecret: String = Environment.get("CLERK_WEBHOOK_SECRET")!
     static let dbHostname = Environment.get("DATABASE_HOST") ?? "localhost"
     static let blacklistedProxyDestinations: Set<String> = makeBlacklistedProxyDestinations()
+    static let proxyBlockPrivateAddresses: Bool = Bool(Environment.get("PROXY_BLOCK_PRIVATE_ADDRESSES") ?? "true") ?? true
     static let termsLastUpdated = Date(timeIntervalSince1970: TimeInterval(Environment.get("TERMS_LAST_UPDATED") ?? "") ?? 1767225600)
     static let minimumTermsDateForProxy = Date(timeIntervalSince1970: TimeInterval(Environment.get("MINIMUM_TERMS_DATE_FOR_PROXY") ?? "") ?? 1767225600)
+    
+    static func isBlacklistedProxyDestination(_ destination: String) -> Bool {
+        if proxyBlockPrivateAddresses, destination.starts(with: "192.") || destination.starts(with: "10.") || destination.starts(with: "172.") {
+            return false
+        }
+        
+        return blacklistedProxyDestinations.contains(destination)
+    }
     
     private static func makeBlacklistedProxyDestinations() -> Set<String> {
         let initialSet = Set([dbHostname] + (Environment.get("BLACKLISTED_PROXY_DESTINATIONS")?.components(separatedBy: ", ") ?? []))
