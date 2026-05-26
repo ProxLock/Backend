@@ -17,7 +17,7 @@ struct Constants {
     static let minimumTermsDateForProxy = Date(timeIntervalSince1970: TimeInterval(Environment.get("MINIMUM_TERMS_DATE_FOR_PROXY") ?? "") ?? 1767225600)
     
     static func isBlacklistedProxyDestination(_ destination: String) -> Bool {
-        if proxyBlockPrivateAddresses, destination.starts(with: "192.") || destination.starts(with: "10.") || destination.starts(with: "172.") {
+        if proxyBlockPrivateAddresses, destination == "localhost" || destination == "127.0.0.1" || destination.starts(with: "192.") || destination.starts(with: "10.") || destination.starts(with: "172.") {
             return false
         }
         
