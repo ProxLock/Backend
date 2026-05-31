@@ -1,4 +1,4 @@
-name: Deploy ProxLock to Azure
+name: Publish ProxLock image
 
 concurrency:
   group: Production
@@ -9,8 +9,12 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
-    build-and-deploy:
+    build-and-push:
         environment:
           name: Production
           url: https://api.proxlock.dev
@@ -23,17 +27,18 @@ jobs:
         - name: 'Set commit SHA in routes.swift'
           run: |
             sed -i "s|%%REPLACE_HERE_IN_CI%%|${{ github.sha }}|g" Sources/ProxLock/routes.swift
-          
-        - name: 'Login via Azure CLI'
-          uses: azure/login@v1
+
+        - name: 'Set image name'
+          run: |
+            echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+        - name: 'Login to GitHub Container Registry'
+          uses: docker/login-action@v3
           with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
-        
-        - uses: azure/docker-login@v1
-          with:
-            login-server: proxlock.azurecr.io
-            username: ${{ secrets.REGISTRY_USERNAME }}
-            password: ${{ secrets.REGISTRY_PASSWORD }}
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
         - run: |
-            docker build . -t proxlock.azurecr.io/proxlock:latest
-            docker push proxlock.azurecr.io/proxlock:latest
+            docker build . -t "$IMAGE_NAME:latest"
+            docker push "$IMAGE_NAME:latest"
