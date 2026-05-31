@@ -14,7 +14,7 @@ public func configure(_ app: Application) async throws {
     
     if let dbURL = Environment.get("DATABASE_URL") {
         app.logger.notice("DB URL: \(dbURL)")
-        try app.databases.use(.postgres(url: dbURL), as: .psql)
+        try app.databases.use(.postgres(configuration: .railwayCompatible(url: dbURL)), as: .psql)
     } else {
         app.logger.notice("DB Hostname: \(Environment.get("DATABASE_HOST") ?? "unknown")")
         app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
@@ -51,4 +51,22 @@ public func configure(_ app: Application) async throws {
 
     // register routes
     try routes(app)
+}
+
+extension SQLPostgresConfiguration {
+    static func railwayCompatible(url: String) throws -> SQLPostgresConfiguration {
+        var configuration = try SQLPostgresConfiguration(url: url)
+
+        guard
+            let components = URLComponents(string: url),
+            components.host?.hasSuffix(".railway.internal") == true
+        else {
+            return configuration
+        }
+
+        var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+        tlsConfiguration.certificateVerification = .none
+        configuration.coreConfiguration.tls = try .require(.init(configuration: tlsConfiguration))
+        return configuration
+    }
 }
