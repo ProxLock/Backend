@@ -16,7 +16,7 @@ public func configure(_ app: Application) async throws {
         app.logger.notice("DB URL: \(dbURL)")
         try app.databases.use(.postgres(url: dbURL), as: .psql)
     } else {
-        app.logger.notice("DB Hostname: \(Environment.get("HOSTNAME") ?? "unknown")")
+        app.logger.notice("DB Hostname: \(Environment.get("DATABASE_HOST") ?? "unknown")")
         app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
             hostname: Environment.get("DATABASE_HOST") ?? "localhost",
             port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
