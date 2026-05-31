@@ -142,9 +142,9 @@ actor Cache {
         return item
     }
     
-    /// Generates an expiration date of 1 hour from now
+    /// Generates an expiration date of 5 minutes from now
     internal func generateExpiration() -> Date {
-        .now.addingTimeInterval(60*60)
+        .now.addingTimeInterval(60*5)
     }
 }
 
