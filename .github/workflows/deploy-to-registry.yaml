@@ -18,7 +18,7 @@ jobs:
         environment:
           name: Production
           url: https://api.proxlock.dev
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-4vcpu-ubuntu-2404
         steps:
         # checkout the repo
         - name: 'Checkout GitHub Action'
