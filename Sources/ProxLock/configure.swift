@@ -12,14 +12,20 @@ public func configure(_ app: Application) async throws {
     // cors middleware should come before default error middleware using `at: .beginning`
     app.middleware.use(corsMiddleware, at: .beginning)
     
-    app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
-        hostname: Constants.dbHostname,
-        port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
-        username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-        password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-        database: Environment.get("DATABASE_NAME") ?? "vapor_database",
-        tls: .prefer(try .init(configuration: .clientDefault)))
-    ), as: .psql)
+    if let dbURL = Environment.get("DATABASE_URL") {
+        app.logger.notice("DB URL: \(dbURL)")
+        try app.databases.use(.postgres(url: dbURL), as: .psql)
+    } else {
+        app.logger.notice("DB Hostname: \(Environment.get("HOSTNAME") ?? "unknown")")
+        app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
+            hostname: Environment.get("DATABASE_HOST") ?? "localhost",
+            port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
+            username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
+            password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
+            database: Environment.get("DATABASE_NAME") ?? "vapor_database",
+            tls: .prefer(try .init(configuration: .clientDefault)))
+        ), as: .psql)
+    }
     
     let jsonDecoder = JSONDecoder()
     jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
