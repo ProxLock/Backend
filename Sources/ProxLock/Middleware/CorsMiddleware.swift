@@ -37,3 +37,11 @@ let wildcardCorsMiddleware = CORSMiddleware(configuration: wildcardCorsConfigura
 extension HTTPHeaders.Name {
     static let code = HTTPHeaders.Name("Code")
 }
+struct corsSwitchMiddleware: Middleware {
+    func respond(to request: Request, chainingTo next: any Responder) -> EventLoopFuture<Response> {
+        let corsMiddleware = request.url.path.hasPrefix("/proxy")
+            ? wildcardCorsMiddleware
+            : corsMiddleware
+        return corsMiddleware.respond(to: request, chainingTo: next)
+    }
+}
