@@ -57,7 +57,8 @@ struct DeviceValidationMiddleware: AsyncMiddleware {
             throw Abort(.unauthorized, reason: "Web requests are not enabled for this key")
         }
         
-        let deviceCheckEventLoopFuture = wildcardCorsMiddleware.respond(to: request, chainingTo: next)
+        // let deviceCheckEventLoopFuture = wildcardCorsMiddleware.respond(to: request, chainingTo: next)
+        let deviceCheckEventLoopFuture = corsSwitchMiddleware().respond(to: request, chainingTo: next)
         
         let response = try await withCheckedThrowingContinuation { continuation in
             deviceCheckEventLoopFuture.whenComplete { result in

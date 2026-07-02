@@ -23,25 +23,26 @@ private let corsConfiguration = CORSMiddleware.Configuration(
     allowCredentials: true,
     exposedHeaders: [.code]
 )
-let corsMiddleware = CORSMiddleware(configuration: corsConfiguration)
-
-private let wildcardCorsConfiguration = CORSMiddleware.Configuration(
-    allowedOrigin: .all,
-    allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
-    allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin, .code],
-    allowCredentials: false,
-    exposedHeaders: [.code]
-)
-let wildcardCorsMiddleware = CORSMiddleware(configuration: wildcardCorsConfiguration)
+private let corsMiddleware = CORSMiddleware(configuration: corsConfiguration)
 
 extension HTTPHeaders.Name {
     static let code = HTTPHeaders.Name("Code")
 }
 struct corsSwitchMiddleware: Middleware {
     func respond(to request: Request, chainingTo next: any Responder) -> EventLoopFuture<Response> {
-        let corsMiddleware = request.url.path.hasPrefix("/proxy")
-            ? wildcardCorsMiddleware
-            : corsMiddleware
-        return corsMiddleware.respond(to: request, chainingTo: next)
+
+        guard (request.url.path.hasPrefix("/proxy")) else {
+            return corsMiddleware.respond(to: request, chainingTo: next)
+        }
+        
+        // creating the wildcard middleware
+        let wildcardCorsMiddleware = CORSMiddleware(configuration: CORSMiddleware.Configuration(
+            allowedOrigin: .custom(request.headers.first(name: .origin) ?? ""),
+            allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
+            allowedHeaders: [HTTPHeaders.Name("*")],
+            allowCredentials: true,
+            exposedHeaders: [.code]
+        ))
+        return wildcardCorsMiddleware.respond(to: request, chainingTo: next)
     }
 }
