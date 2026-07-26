@@ -67,6 +67,7 @@ struct RequestProxyController: RouteCollection {
         headers.remove(name: ProxyHeaderKeys.httpMethod)
         headers.remove(name: ProxyHeaderKeys.associationId)
         headers.remove(name: "X-Apple-Device-Token")
+        headers.remove(name: "CF-Connecting-IP")
         headers.remove(name: "Host")
         
         // Get Full Key
