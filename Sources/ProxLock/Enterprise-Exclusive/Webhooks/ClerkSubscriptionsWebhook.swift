@@ -35,7 +35,7 @@ struct ClerkSubscriptionsWebhook: RouteCollection {
         
         let items = webhookItem.data.items
         
-        guard let activeItem = items.first(where: { ($0.periodStart < Date() && $0.periodEnd > Date() && $0.status != .ended) || $0.status == .active }) else {
+        guard let activeItem = items.first(where: { ($0.periodStart < Date() && $0.periodEnd ?? Date() >= Date() && $0.status != .ended) || $0.status == .active }) else {
             throw Abort(.internalServerError)
         }
         
@@ -78,7 +78,8 @@ private struct DataClass: Codable {
 private struct Item: Codable {
     let createdAt: Date
     let id, interval, object: String
-    let periodEnd, periodStart: Date
+    let periodEnd: Date?
+    let periodStart: Date
     let plan: Plan
     let planId: String
     let status: SubscriptionStatus
