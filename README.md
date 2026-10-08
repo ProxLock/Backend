@@ -114,6 +114,23 @@ Before you begin, ensure you have the following installed:
 |----------|-------------|
 | `-1` | The user has not accepted the latest TOS and must do so before the action is permitted |
 
+## In-memory read caching
+
+Successful JSON dashboard GET responses are cached per application process for five
+minutes from insertion. Cache hits still run authentication and TOS checks. Keys
+include the acting backend user ID, complete URL (including query parameters and
+the admin/version prefix), and Accept headers. Unauthenticated requests, errors,
+cookies, streaming responses, and `/proxy` responses are not cached.
+
+Dashboard and subscription-webhook writes clear local response entries before and
+after the handler, including on failure. Reads overlapping a write cannot refill
+the cache with an older snapshot. Both legacy and `/v1` routes share invalidation.
+The cache holds at most 256 responses of at most 256 KiB each, evicting the entry
+that expires soonest when full. It uses a monotonic clock and needs no external
+cache service. Each replica has its own cache; writes on another replica, direct
+database changes, and proxy usage increments can take up to five minutes to appear
+in cached dashboard responses. Existing model lookup and usage caches are separate.
+
 ## Building and Running
 
 ### Build the project

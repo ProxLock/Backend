@@ -39,15 +39,15 @@ let package = Package(
                 .product(name: "Queues", package: "queues"),
             ],
             swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "ProxLockTests",
+            dependencies: [
+                .target(name: "ProxLock"),
+                .product(name: "VaporTesting", package: "vapor"),
+            ],
+            swiftSettings: swiftSettings
         )
-        //        .testTarget(
-        //            name: "ProxLockTests",
-        //            dependencies: [
-        //                .target(name: "ProxLock"),
-        //                .product(name: "VaporTesting", package: "vapor"),
-        //            ],
-        //            swiftSettings: swiftSettings
-        //        )
     ]
 )
 

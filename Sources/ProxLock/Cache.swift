@@ -58,7 +58,7 @@ extension Cache {
     }
 }
 
-/// A cache of various objects that holds for 1 hour after initial fetch
+/// A cache of various objects that holds for 5 minutes after initial fetch
 actor Cache {
     static let shared = Cache()
     
